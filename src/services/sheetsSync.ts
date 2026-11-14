@@ -1,4 +1,5 @@
 import type {
+  AppUser,
   CoupleChatMessage,
   CoupleNudge,
   CoupleProfile,
@@ -13,7 +14,29 @@ const STORAGE_KEYS = {
   LOGS: 'daily_miniapp_logs_v1',
   DAILY_NOTES: 'daily_miniapp_daily_notes_v1',
   SHEET_URL: 'daily_miniapp_sheet_url_v1',
+  CURRENT_USER: 'daily_miniapp_current_user_v1',
 };
+
+export function loadCurrentUser(): AppUser | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+    return raw ? (JSON.parse(raw) as AppUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCurrentUser(user: AppUser): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(user));
+  } catch {
+    // ignore
+  }
+}
+
+export function clearCurrentUser(): void {
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+}
 
 export function loadDailyNotes(): Record<string, DailyNote> {
   try {
@@ -85,6 +108,7 @@ export async function fetchFromSheets(
 ): Promise<{
   tasks: Task[];
   logs: TaskLog[];
+  users?: AppUser[];
   coupleChat?: CoupleChatMessage[];
   coupleNudges?: CoupleNudge[];
   partnerCheckins?: PartnerCheckin[];
@@ -96,6 +120,7 @@ export async function fetchFromSheets(
 
   const rawTasks = Array.isArray(data.tasks) ? data.tasks : [];
   const rawLogs = Array.isArray(data.logs) ? data.logs : [];
+  const rawUsers = Array.isArray(data.users) ? data.users : [];
   const rawChat = Array.isArray(data.coupleChat) ? data.coupleChat : [];
   const rawNudges = Array.isArray(data.coupleNudges) ? data.coupleNudges : [];
   const rawCheckins = Array.isArray(data.partnerCheckins) ? data.partnerCheckins : [];
@@ -104,6 +129,7 @@ export async function fetchFromSheets(
     .filter((t: Partial<Task>) => t && t.id && t.title)
     .map((t: Partial<Task>) => ({
       id: String(t.id),
+      user_id: t.user_id ? String(t.user_id) : undefined,
       title: String(t.title),
       emoji: t.emoji ? String(t.emoji) : 'flag',
       color: t.color ? String(t.color) : '#EC4899',
@@ -124,6 +150,7 @@ export async function fetchFromSheets(
     .filter((l: Partial<TaskLog>) => l && l.id && l.task_id)
     .map((l: Partial<TaskLog>) => ({
       id: String(l.id),
+      user_id: l.user_id ? String(l.user_id) : undefined,
       task_id: String(l.task_id),
       log_date: normalizeDateField(l.log_date),
       value: Number(l.value) || 0,
@@ -134,11 +161,24 @@ export async function fetchFromSheets(
       updated_at: l.updated_at ? String(l.updated_at) : new Date().toISOString(),
     }));
 
+  const users: AppUser[] = rawUsers
+    .filter((u: Partial<AppUser>) => u && u.user_id && u.display_name)
+    .map((u: Partial<AppUser>) => ({
+      user_id: String(u.user_id),
+      display_name: String(u.display_name),
+      pin: u.pin ? String(u.pin) : '',
+      partner_id: u.partner_id ? String(u.partner_id) : undefined,
+      room_code: u.room_code ? String(u.room_code) : undefined,
+      created_at: u.created_at ? String(u.created_at) : new Date().toISOString(),
+    }));
+
   const coupleChat: CoupleChatMessage[] = rawChat
     .filter((m: Partial<CoupleChatMessage>) => m && m.id && m.text)
     .map((m: Partial<CoupleChatMessage>) => ({
       id: String(m.id),
       sender: m.sender === 'partner' ? 'partner' : 'me',
+      sender_id: m.sender_id ? String(m.sender_id) : undefined,
+      room_code: m.room_code ? String(m.room_code) : undefined,
       text: String(m.text),
       createdAt: m.createdAt ? String(m.createdAt) : '',
     }));
@@ -148,6 +188,8 @@ export async function fetchFromSheets(
     .map((n: Partial<CoupleNudge>) => ({
       id: String(n.id),
       from: n.from === 'partner' ? 'partner' : 'me',
+      sender_id: n.sender_id ? String(n.sender_id) : undefined,
+      room_code: n.room_code ? String(n.room_code) : undefined,
       message: String(n.message),
       createdAt: n.createdAt ? String(n.createdAt) : '',
     }));
@@ -171,6 +213,7 @@ export async function fetchFromSheets(
   return {
     tasks,
     logs,
+    users: users.length > 0 ? users : undefined,
     coupleChat: coupleChat.length > 0 ? coupleChat : undefined,
     coupleNudges: coupleNudges.length > 0 ? coupleNudges : undefined,
     partnerCheckins: partnerCheckins.length > 0 ? partnerCheckins : undefined,
@@ -205,6 +248,10 @@ export async function bulkSyncToSheets(
   logs: TaskLog[]
 ): Promise<void> {
   await postToSheets(scriptUrl, { action: 'bulk_sync', tasks, logs });
+}
+
+export async function syncUserToSheets(scriptUrl: string, user: AppUser): Promise<void> {
+  await postToSheets(scriptUrl, { action: 'upsert_user', user });
 }
 
 export async function syncCoupleProfileToSheets(

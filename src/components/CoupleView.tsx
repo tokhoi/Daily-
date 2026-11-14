@@ -11,6 +11,8 @@ import { GIcon, TaskGlyph } from './GIcon';
 interface CoupleViewProps {
   myPercent: number;
   myWeeklyPercents: { label: string; percent: number }[];
+  partnerTodayPercent?: number;
+  partnerWeeklyPercents?: number[];
   profile: CoupleProfile;
   partnerCheckins: PartnerCheckin[];
   nudges: CoupleNudge[];
@@ -37,6 +39,8 @@ const QUICK_COUPLE_CHAT = [
 export const CoupleView: React.FC<CoupleViewProps> = ({
   myPercent,
   myWeeklyPercents,
+  partnerTodayPercent,
+  partnerWeeklyPercents,
   profile,
   partnerCheckins,
   nudges,
@@ -59,8 +63,14 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
 
   const startXRef = useRef(0);
 
-  const partnerWeekly = createMockPartnerWeeklyPercents();
-  const partnerPercent = partnerWeekly[partnerWeekly.length - 1] ?? 86;
+  const partnerWeekly =
+    partnerWeeklyPercents && partnerWeeklyPercents.length === 7
+      ? partnerWeeklyPercents
+      : createMockPartnerWeeklyPercents();
+  const partnerPercent =
+    typeof partnerTodayPercent === 'number'
+      ? partnerTodayPercent
+      : (partnerWeekly[partnerWeekly.length - 1] ?? 86);
   const coupleStreak = 5;
 
   const myWeekAvg =

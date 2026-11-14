@@ -4,6 +4,7 @@ export type LogStatus = 'pending' | 'partial' | 'completed' | 'skipped';
 
 export interface Task {
   id: string;
+  user_id?: string;
   title: string;
   emoji: string;
   color: string;
@@ -48,9 +49,20 @@ export interface PartnerCheckin {
   reaction?: 'heart' | 'clap' | 'fire' | null;
 }
 
+export interface AppUser {
+  user_id: string;
+  display_name: string;
+  pin: string;
+  partner_id?: string;
+  room_code?: string;
+  created_at: string;
+}
+
 export interface CoupleNudge {
   id: string;
   from: 'me' | 'partner';
+  sender_id?: string;
+  room_code?: string;
   message: string;
   createdAt: string;
 }
@@ -58,6 +70,8 @@ export interface CoupleNudge {
 export interface CoupleChatMessage {
   id: string;
   sender: 'me' | 'partner';
+  sender_id?: string;
+  room_code?: string;
   text: string;
   createdAt: string;
 }
@@ -65,6 +79,7 @@ export interface CoupleChatMessage {
 export interface TaskLog {
   /** Composite key: `${task_id}_${log_date}` */
   id: string;
+  user_id?: string;
   task_id: string;
   /** YYYY-MM-DD */
   log_date: string;

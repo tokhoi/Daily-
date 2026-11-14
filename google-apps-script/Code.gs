@@ -14,10 +14,20 @@
 
 const SHEET_TASKS = 'tasks';
 const SHEET_LOGS = 'task_logs';
+const SHEET_USERS = 'users';
 const SHEET_COUPLE_PROFILES = 'couple_profiles';
 const SHEET_COUPLE_CHAT = 'couple_chat';
 const SHEET_COUPLE_NUDGES = 'couple_nudges';
 const SHEET_PARTNER_CHECKINS = 'partner_checkins';
+
+const USER_HEADERS = [
+  'user_id',
+  'display_name',
+  'pin',
+  'partner_id',
+  'room_code',
+  'created_at',
+];
 
 const COUPLE_PROFILE_HEADERS = [
   'id',
@@ -30,9 +40,9 @@ const COUPLE_PROFILE_HEADERS = [
   'updated_at',
 ];
 
-const COUPLE_CHAT_HEADERS = ['id', 'sender', 'text', 'createdAt'];
+const COUPLE_CHAT_HEADERS = ['id', 'sender', 'sender_id', 'room_code', 'text', 'createdAt'];
 
-const COUPLE_NUDGE_HEADERS = ['id', 'from', 'message', 'createdAt'];
+const COUPLE_NUDGE_HEADERS = ['id', 'from', 'sender_id', 'room_code', 'message', 'createdAt'];
 
 const PARTNER_CHECKIN_HEADERS = [
   'id',
@@ -47,6 +57,7 @@ const PARTNER_CHECKIN_HEADERS = [
 
 const TASK_HEADERS = [
   'id',
+  'user_id',
   'title',
   'emoji',
   'color',
@@ -65,6 +76,7 @@ const TASK_HEADERS = [
 
 const LOG_HEADERS = [
   'id',
+  'user_id',
   'task_id',
   'log_date',
   'value',
@@ -158,6 +170,7 @@ function doGet(e) {
   try {
     const tasksSheet = getOrCreateSheet(SHEET_TASKS, TASK_HEADERS);
     const logsSheet = getOrCreateSheet(SHEET_LOGS, LOG_HEADERS);
+    const usersSheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
     const profilesSheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
     const chatSheet = getOrCreateSheet(SHEET_COUPLE_CHAT, COUPLE_CHAT_HEADERS);
     const nudgesSheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
@@ -165,6 +178,7 @@ function doGet(e) {
 
     const tasks = sheetToObjects(tasksSheet, TASK_HEADERS);
     const logs = sheetToObjects(logsSheet, LOG_HEADERS);
+    const users = sheetToObjects(usersSheet, USER_HEADERS);
     const coupleProfiles = sheetToObjects(profilesSheet, COUPLE_PROFILE_HEADERS);
     const coupleChat = sheetToObjects(chatSheet, COUPLE_CHAT_HEADERS);
     const coupleNudges = sheetToObjects(nudgesSheet, COUPLE_NUDGE_HEADERS);
@@ -174,6 +188,7 @@ function doGet(e) {
       ok: true,
       tasks: tasks,
       logs: logs,
+      users: users,
       coupleProfiles: coupleProfiles,
       coupleChat: coupleChat,
       coupleNudges: coupleNudges,
@@ -198,6 +213,12 @@ function doPost(e) {
     if (action === 'upsert_log') {
       const sheet = getOrCreateSheet(SHEET_LOGS, LOG_HEADERS);
       upsertRow(sheet, LOG_HEADERS, 'id', body.log.id, body.log);
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === 'upsert_user') {
+      const sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      upsertRow(sheet, USER_HEADERS, 'user_id', body.user.user_id, body.user);
       return jsonResponse({ ok: true });
     }
 

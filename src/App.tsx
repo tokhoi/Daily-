@@ -13,6 +13,7 @@ import {
   WelcomeOverlayModal,
 } from './components/JellycatMascot';
 import { PhotoCheckModal } from './components/PhotoCheckModal';
+import { UserLoginModal } from './components/UserLoginModal';
 import {
   createDefaultCoupleProfile,
   createMockCoupleChat,
@@ -29,8 +30,10 @@ import {
   bulkSyncToSheets,
   fetchFromSheets,
   getSavedSheetUrl,
+  loadCurrentUser,
   loadDailyNotes,
   loadLocalData,
+  saveCurrentUser,
   saveDailyNotes,
   saveLocalData,
   saveSheetUrl,
@@ -40,9 +43,11 @@ import {
   syncLogToSheets,
   syncPartnerCheckinToSheets,
   syncTaskToSheets,
+  syncUserToSheets,
 } from './services/sheetsSync';
 import type {
   AppTab,
+  AppUser,
   CoupleChatMessage,
   CoupleNudge,
   CoupleProfile,
@@ -140,6 +145,9 @@ export function App() {
   });
 
   const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(() => loadCurrentUser());
+  const [remoteUsers, setRemoteUsers] = useState<AppUser[]>([]);
+  const [showUserModal, setShowUserModal] = useState<boolean>(false);
 
   const [sheetUrl, setSheetUrl] = useState<string>(() => getSavedSheetUrl());
   const [syncState, setSyncState] = useState<SyncState>(() =>
@@ -258,8 +266,33 @@ export function App() {
         setTasks(remote.tasks);
         setLogs(remote.logs);
       }
-      if (remote.coupleChat) setCoupleChat(remote.coupleChat);
-      if (remote.coupleNudges) setNudges(remote.coupleNudges);
+      if (remote.users) setRemoteUsers(remote.users);
+      if (remote.coupleChat) {
+        setCoupleChat(
+          remote.coupleChat.map((m) => ({
+            ...m,
+            sender:
+              m.sender_id && currentUser
+                ? m.sender_id === currentUser.user_id
+                  ? 'me'
+                  : 'partner'
+                : m.sender,
+          }))
+        );
+      }
+      if (remote.coupleNudges) {
+        setNudges(
+          remote.coupleNudges.map((n) => ({
+            ...n,
+            from:
+              n.sender_id && currentUser
+                ? n.sender_id === currentUser.user_id
+                  ? 'me'
+                  : 'partner'
+                : n.from,
+          }))
+        );
+      }
       if (remote.partnerCheckins) setPartnerCheckins(remote.partnerCheckins);
       setSyncState('synced');
     } catch (err) {
@@ -294,19 +327,23 @@ export function App() {
   };
 
   const upsertLog = (nextLog: TaskLog) => {
+    const taggedLog: TaskLog = {
+      ...nextLog,
+      user_id: nextLog.user_id || currentUser?.user_id,
+    };
     setLogs((prev) => {
-      const idx = prev.findIndex((l) => l.id === nextLog.id);
-      const nextLogs = idx >= 0 ? prev.map((l, i) => (i === idx ? nextLog : l)) : [...prev, nextLog];
+      const idx = prev.findIndex((l) => l.id === taggedLog.id);
+      const nextLogs = idx >= 0 ? prev.map((l, i) => (i === idx ? taggedLog : l)) : [...prev, taggedLog];
 
       // Check if user just reached 100% completion for selectedDate
-      const scheduled = tasks.filter((t) => isTaskScheduledForDate(t, nextLog.log_date));
-      if (scheduled.length > 0 && nextLog.status === 'completed') {
+      const scheduled = myTasks.filter((t) => isTaskScheduledForDate(t, taggedLog.log_date));
+      if (scheduled.length > 0 && taggedLog.status === 'completed') {
         const allDoneNow = scheduled.every((t) => {
-          const l = nextLogs.find((x) => x.task_id === t.id && x.log_date === nextLog.log_date);
+          const l = nextLogs.find((x) => x.task_id === t.id && x.log_date === taggedLog.log_date);
           return getLogCompletionRatio(t, l) >= 1;
         });
         const wasAllDoneBefore = scheduled.every((t) => {
-          const l = prev.find((x) => x.task_id === t.id && x.log_date === nextLog.log_date);
+          const l = prev.find((x) => x.task_id === t.id && x.log_date === taggedLog.log_date);
           return getLogCompletionRatio(t, l) >= 1;
         });
         if (allDoneNow && !wasAllDoneBefore) {
@@ -319,7 +356,7 @@ export function App() {
 
     if (sheetUrl) {
       setSyncState('syncing');
-      syncLogToSheets(sheetUrl, nextLog)
+      syncLogToSheets(sheetUrl, taggedLog)
         .then(() => setSyncState('synced'))
         .catch((err) => {
           setSyncState('error');
@@ -431,12 +468,16 @@ export function App() {
   };
 
   const handleSaveTask = (task: Task, isEdit: boolean) => {
+    const taggedTask: Task = {
+      ...task,
+      user_id: task.user_id || currentUser?.user_id,
+    };
     setTasks((prev) =>
-      isEdit ? prev.map((t) => (t.id === task.id ? task : t)) : [...prev, task]
+      isEdit ? prev.map((t) => (t.id === taggedTask.id ? taggedTask : t)) : [...prev, taggedTask]
     );
     if (sheetUrl) {
       setSyncState('syncing');
-      syncTaskToSheets(sheetUrl, task)
+      syncTaskToSheets(sheetUrl, taggedTask)
         .then(() => setSyncState('synced'))
         .catch((err) => {
           setSyncState('error');
@@ -480,23 +521,60 @@ export function App() {
     setLogs(seed.logs);
   };
 
+  const myTasks = tasks.filter(
+    (t) => !currentUser || !t.user_id || t.user_id === currentUser.user_id
+  );
+  const myLogs = logs.filter(
+    (l) => !currentUser || !l.user_id || l.user_id === currentUser.user_id
+  );
+
+  const partnerTasks = currentUser?.partner_id
+    ? tasks.filter((t) => t.user_id === currentUser.partner_id)
+    : [];
+  const partnerLogs = currentUser?.partner_id
+    ? logs.filter((l) => l.user_id === currentUser.partner_id)
+    : [];
+
+  const handleLoginUser = (user: AppUser) => {
+    saveCurrentUser(user);
+    setCurrentUser(user);
+    setShowUserModal(false);
+    setCoupleProfile((prev) => ({
+      ...prev,
+      myName: user.display_name,
+      myCode: user.user_id.toUpperCase(),
+      partnerCode: (user.room_code || prev.partnerCode).toUpperCase(),
+      partnerName:
+        remoteUsers.find((u) => u.user_id === user.partner_id)?.display_name ||
+        user.partner_id ||
+        prev.partnerName,
+    }));
+    setRemoteUsers((prev) => {
+      const idx = prev.findIndex((u) => u.user_id === user.user_id);
+      return idx >= 0 ? prev.map((u, i) => (i === idx ? user : u)) : [...prev, user];
+    });
+    if (sheetUrl) {
+      syncUserToSheets(sheetUrl, user).catch(console.error);
+    }
+  };
+
   const todayKey = toDateKey(new Date());
-  const scheduledTodayTasks = tasks.filter((t) => isTaskScheduledForDate(t, todayKey));
+  const scheduledTodayTasks = myTasks.filter((t) => isTaskScheduledForDate(t, todayKey));
   const pendingTodayTasks = scheduledTodayTasks.filter((t) => {
-    const log = logs.find((l) => l.task_id === t.id && l.log_date === todayKey);
+    const log = myLogs.find((l) => l.task_id === t.id && l.log_date === todayKey);
     if (log?.status === 'skipped') return false;
     return getLogCompletionRatio(t, log) < 1;
   });
 
   const activeScheduledToday = scheduledTodayTasks.filter((t) => {
-    const log = logs.find((l) => l.task_id === t.id && l.log_date === todayKey);
+    const log = myLogs.find((l) => l.task_id === t.id && l.log_date === todayKey);
     return log?.status !== 'skipped';
   });
   const myPercent =
     activeScheduledToday.length > 0
       ? Math.round(
           (activeScheduledToday.reduce((acc, task) => {
-            const log = logs.find((l) => l.task_id === task.id && l.log_date === todayKey);
+            const log = myLogs.find((l) => l.task_id === task.id && l.log_date === todayKey);
             return acc + getLogCompletionRatio(task, log);
           }, 0) /
             activeScheduledToday.length) *
@@ -524,6 +602,8 @@ export function App() {
     const newNudge: CoupleNudge = {
       id: `nudge_${Date.now()}`,
       from: 'me',
+      sender_id: currentUser?.user_id,
+      room_code: currentUser?.room_code || coupleProfile.partnerCode,
       message,
       createdAt: new Date().toLocaleTimeString('vi-VN', {
         hour: '2-digit',
@@ -542,6 +622,8 @@ export function App() {
     const newMsg: CoupleChatMessage = {
       id: `chat_${Date.now()}`,
       sender: 'me',
+      sender_id: currentUser?.user_id,
+      room_code: currentUser?.room_code || coupleProfile.partnerCode,
       text,
       createdAt: now,
     };
@@ -549,29 +631,38 @@ export function App() {
     if (sheetUrl) syncCoupleChatToSheets(sheetUrl, newMsg).catch(console.error);
   };
 
-  const myWeeklyPercents = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
-    const dk = toDateKey(d);
-    const dayLabel = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
-    const scheduled = tasks.filter((t) => isTaskScheduledForDate(t, dk));
-    const active = scheduled.filter((t) => {
-      const log = logs.find((l) => l.task_id === t.id && l.log_date === dk);
-      return log?.status !== 'skipped';
+  const calcWeeklyPercents = (taskList: Task[], logList: TaskLog[]) =>
+    Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      const dk = toDateKey(d);
+      const dayLabel = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
+      const scheduled = taskList.filter((t) => isTaskScheduledForDate(t, dk));
+      const active = scheduled.filter((t) => {
+        const log = logList.find((l) => l.task_id === t.id && l.log_date === dk);
+        return log?.status !== 'skipped';
+      });
+      const pct =
+        active.length > 0
+          ? Math.round(
+              (active.reduce((acc, task) => {
+                const log = logList.find((l) => l.task_id === task.id && l.log_date === dk);
+                return acc + getLogCompletionRatio(task, log);
+              }, 0) /
+                active.length) *
+                100
+            )
+          : 0;
+      return { label: dayLabel, percent: pct };
     });
-    const pct =
-      active.length > 0
-        ? Math.round(
-            (active.reduce((acc, task) => {
-              const log = logs.find((l) => l.task_id === task.id && l.log_date === dk);
-              return acc + getLogCompletionRatio(task, log);
-            }, 0) /
-              active.length) *
-              100
-          )
-        : 0;
-    return { label: dayLabel, percent: pct };
-  });
+
+  const myWeeklyPercents = calcWeeklyPercents(myTasks, myLogs);
+  const realPartnerWeekly =
+    partnerTasks.length > 0
+      ? calcWeeklyPercents(partnerTasks, partnerLogs).map((d) => d.percent)
+      : undefined;
+  const realPartnerTodayPercent =
+    realPartnerWeekly !== undefined ? realPartnerWeekly[realPartnerWeekly.length - 1] : undefined;
 
   const latestPartnerNudge = nudges.find((n) => n.from === 'partner');
 
@@ -605,6 +696,19 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Active User Pill */}
+            <button
+              type="button"
+              onClick={() => setShowUserModal(true)}
+              className="ios-press flex items-center gap-1 rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
+              title="Đổi tài khoản"
+            >
+              <GIcon name="person" size={13} className="text-pink-400" />
+              <span className="max-w-[64px] truncate">
+                {currentUser ? currentUser.display_name : 'Đăng nhập'}
+              </span>
+            </button>
+
             {/* Weather Mode Toggle Pill */}
             <button
               type="button"
@@ -726,8 +830,8 @@ export function App() {
               t={t}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
-              tasks={tasks}
-              logs={logs}
+              tasks={myTasks}
+              logs={myLogs}
               dailyNote={dailyNotes[selectedDate]}
               weatherTip={weatherTip}
               scrollToTasksTrigger={scrollToTasksTrigger}
@@ -754,6 +858,8 @@ export function App() {
               key="couple-tab"
               myPercent={myPercent}
               myWeeklyPercents={myWeeklyPercents}
+              partnerTodayPercent={realPartnerTodayPercent}
+              partnerWeeklyPercents={realPartnerWeekly}
               profile={coupleProfile}
               partnerCheckins={partnerCheckins}
               nudges={nudges}
@@ -768,7 +874,7 @@ export function App() {
           {activeTab === 'bear3d' && <Bear3DStudio key="bear3d-tab" />}
 
           {activeTab === 'summary' && (
-            <SummaryView key="summary-tab" t={t} tasks={tasks} logs={logs} />
+            <SummaryView key="summary-tab" t={t} tasks={myTasks} logs={myLogs} />
           )}
 
           {activeTab === 'settings' && (
@@ -781,8 +887,8 @@ export function App() {
               sheetUrl={sheetUrl}
               syncState={syncState}
               lastSyncError={lastSyncError}
-              tasks={tasks}
-              logs={logs}
+              tasks={myTasks}
+              logs={myLogs}
               onChangeLang={setLang}
               onChangeTheme={setThemeMode}
               onSaveSheetUrl={handleSaveSheetUrl}
@@ -906,6 +1012,16 @@ export function App() {
             t={t}
             completedCount={celebrationCount}
             onClose={() => setCelebrationCount(null)}
+          />
+        )}
+
+        {/* User Login / Switch Modal */}
+        {(showUserModal || (!showSetupOverlay && !currentUser)) && (
+          <UserLoginModal
+            existingUsers={remoteUsers}
+            currentUser={currentUser}
+            onLogin={handleLoginUser}
+            onClose={currentUser ? () => setShowUserModal(false) : undefined}
           />
         )}
       </div>
