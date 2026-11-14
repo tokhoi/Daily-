@@ -82,7 +82,7 @@ export function saveLocalData(tasks: Task[], logs: TaskLog[]): void {
 }
 
 export function getSavedSheetUrl(): string {
-  return localStorage.getItem(STORAGE_KEYS.SHEET_URL) || DEFAULT_SHEET_URL;
+  return DEFAULT_SHEET_URL;
 }
 
 export function saveSheetUrl(url: string): void {
@@ -217,9 +217,9 @@ export async function fetchFromSheets(
   const coupleProfiles: CoupleProfile[] = rawCoupleProfiles
     .filter((p: Partial<CoupleProfile>) => p && (p.myCode || p.myName))
     .map((p: Partial<CoupleProfile>) => ({
-      myName: p.myName ? String(p.myName) : 'Tô Khôi',
+      myName: p.myName ? String(p.myName) : '',
       myCode: p.myCode ? String(p.myCode).toUpperCase() : '',
-      partnerName: p.partnerName ? String(p.partnerName) : 'Gia Hân',
+      partnerName: p.partnerName ? String(p.partnerName) : '',
       partnerCode: p.partnerCode ? String(p.partnerCode).toUpperCase() : '',
       isPaired: p.isPaired === true || String(p.isPaired).toLowerCase() === 'true',
       bearStyle: p.bearStyle === 'blue' ? 'blue' : 'pink',
@@ -393,6 +393,11 @@ export async function pairCoupleOnSheets(
     user: (res.user as AppUser) || null,
     partner: (res.partner as AppUser) || null,
   };
+}
+
+export async function unpairCoupleOnSheets(scriptUrl: string, userId: string): Promise<AppUser> {
+  const res = await postToSheets(scriptUrl, { action: 'unpair_couple', user_id: userId });
+  return res.user as AppUser;
 }
 
 export async function syncCoupleProfileToSheets(

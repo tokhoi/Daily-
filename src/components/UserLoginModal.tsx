@@ -230,10 +230,12 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
 
             <form onSubmit={handleSubmit} className="mt-4 space-y-3">
               <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-500">
+                <label htmlFor="auth-user-id" className="mb-1 block text-[11px] font-bold text-slate-500">
                   Tên đăng nhập
                 </label>
                 <input
+                  id="auth-user-id"
+                  name="user_id"
                   type="text"
                   autoComplete="username"
                   value={userId}
@@ -245,10 +247,12 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
 
               {mode === 'register' && (
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold text-slate-500">
+                  <label htmlFor="auth-display-name" className="mb-1 block text-[11px] font-bold text-slate-500">
                     Tên hiển thị
                   </label>
                   <input
+                    id="auth-display-name"
+                    name="display_name"
                     type="text"
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
@@ -259,11 +263,13 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
               )}
 
               <div>
-                <label className="mb-1 block text-[11px] font-bold text-slate-500">
+                <label htmlFor="auth-password" className="mb-1 block text-[11px] font-bold text-slate-500">
                   Mật khẩu (tối thiểu 6 ký tự)
                 </label>
                 <div className="relative">
                   <input
+                    id="auth-password"
+                    name="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                     value={password}
@@ -284,10 +290,12 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
 
               {mode === 'register' && (
                 <div>
-                  <label className="mb-1 block text-[11px] font-bold text-slate-500">
+                  <label htmlFor="auth-confirm-password" className="mb-1 block text-[11px] font-bold text-slate-500">
                     Xác nhận mật khẩu
                   </label>
                   <input
+                    id="auth-confirm-password"
+                    name="confirm_password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="new-password"
                     value={confirmPassword}

@@ -5,6 +5,7 @@ import { GIcon } from './GIcon';
 interface ChatViewProps {
   profile: CoupleProfile;
   chatMessages: CoupleChatMessage[];
+  chatError?: string | null;
   onSendChat: (text: string) => void;
   onGoToCouple: () => void;
 }
@@ -19,6 +20,7 @@ const QUICK_COUPLE_CHAT = [
 export const ChatView: React.FC<ChatViewProps> = ({
   profile,
   chatMessages,
+  chatError,
   onSendChat,
   onGoToCouple,
 }) => {
@@ -139,6 +141,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Input Bar */}
+      {chatError && <p role="alert" className="mb-2 text-xs font-semibold text-rose-600">{chatError}</p>}
       <div className="flex gap-2">
         <input
           type="text"

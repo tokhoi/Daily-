@@ -16,7 +16,6 @@ import {
 import { PhotoCheckModal } from './components/PhotoCheckModal';
 import { UserLoginModal } from './components/UserLoginModal';
 import { createDefaultCoupleProfile } from './data/coupleSeed';
-import { createSeedData } from './data/seedData';
 import {
   TRANSLATIONS,
   type AppLang,
@@ -41,6 +40,7 @@ import {
   syncLogToSheets,
   syncPartnerCheckinToSheets,
   syncTaskToSheets,
+  unpairCoupleOnSheets,
 } from './services/sheetsSync';
 import type {
   AppTab,
@@ -106,9 +106,14 @@ export function App() {
       const raw = localStorage.getItem('daily_miniapp_couple_profile_v1');
       if (raw) {
         const parsed = JSON.parse(raw) as CoupleProfile;
-        if (parsed.partnerName === 'Minh Anh') parsed.partnerName = 'Gia Hân';
-        if (parsed.myName === 'Bạn') parsed.myName = 'Tô Khôi';
-        return parsed;
+        const sessionUser = loadCurrentUser();
+        return {
+          ...createDefaultCoupleProfile(),
+          myName: sessionUser?.display_name || '',
+          myCode: sessionUser?.user_id.toUpperCase() || '',
+          partnerCode: parsed.partnerCode?.startsWith('RM-') ? parsed.partnerCode : '',
+          bearStyle: parsed.bearStyle === 'blue' ? 'blue' : 'pink',
+        };
       }
     } catch {
       // ignore
@@ -146,18 +151,18 @@ export function App() {
     return [];
   });
 
-  const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(
-    () => coupleProfile.isPaired
-  );
+  const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => loadCurrentUser());
   const [remoteUsers, setRemoteUsers] = useState<AppUser[]>([]);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
 
   const [sheetUrl, setSheetUrl] = useState<string>(() => getSavedSheetUrl());
   const [syncState, setSyncState] = useState<SyncState>(() =>
-    getSavedSheetUrl() ? 'synced' : 'local'
+    getSavedSheetUrl() ? 'syncing' : 'local'
   );
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+  const [pairError, setPairError] = useState<string | null>(null);
+  const [chatError, setChatError] = useState<string | null>(null);
 
   useEffect(() => {
     saveLocalData(tasks, logs);
@@ -287,28 +292,11 @@ export function App() {
             )
           : undefined;
 
-      const myCodeUpper = (activeUser?.user_id || coupleProfile.myCode || '').toUpperCase();
-      const serverProfile = remote.coupleProfiles?.find(
-        (p) =>
-          p.isPaired &&
-          ((myCodeUpper && p.myCode.toUpperCase() === myCodeUpper) ||
-            (myCodeUpper && p.partnerCode.toUpperCase() === myCodeUpper) ||
-            (serverUser?.room_code &&
-              p.partnerCode.toUpperCase() === serverUser.room_code.toUpperCase()))
-      );
-
-      const resolvedPartnerId =
-        serverUser?.partner_id ||
-        reversePartner?.user_id ||
-        activeUser?.partner_id ||
-        (serverProfile && serverProfile.myCode.toUpperCase() !== myCodeUpper
-          ? serverProfile.myCode.toLowerCase()
-          : undefined);
+      const myCodeUpper = (activeUser?.user_id || '').toUpperCase();
+      const resolvedPartnerId = serverUser?.partner_id || reversePartner?.user_id;
       const resolvedRoomCode = (
         serverUser?.room_code ||
         reversePartner?.room_code ||
-        serverProfile?.partnerCode ||
-        activeUser?.room_code ||
         ''
       ).toUpperCase();
 
@@ -336,42 +324,21 @@ export function App() {
           ? remote.users.find((u) => u.user_id === mergedUser.partner_id)
           : reversePartner;
 
-      if (
-        mergedUser &&
-        (mergedUser.room_code || mergedUser.partner_id || serverProfile?.isPaired)
-      ) {
+      if (mergedUser) {
         setCoupleProfile((prev) => ({
           ...prev,
           myName: mergedUser.display_name || prev.myName,
           myCode: myCodeUpper || prev.myCode,
-          partnerCode: (
-            mergedUser.room_code ||
-            serverProfile?.partnerCode ||
-            prev.partnerCode
-          ).toUpperCase(),
+          partnerCode: (mergedUser.room_code || prev.partnerCode).toUpperCase(),
           partnerName:
             partnerUser?.display_name ||
-            (serverProfile && serverProfile.myCode.toUpperCase() !== myCodeUpper
-              ? serverProfile.myName
-              : serverProfile?.partnerName) ||
             mergedUser.partner_id ||
-            prev.partnerName,
-          isPaired: true,
+            (mergedUser.partner_id ? prev.partnerName : ''),
+          isPaired: Boolean(mergedUser.partner_id && mergedUser.room_code),
         }));
       }
 
-      const roomCandidates = new Set(
-        [
-          mergedUser?.room_code,
-          serverProfile?.partnerCode,
-          serverProfile?.myCode,
-          coupleProfile.partnerCode,
-          coupleProfile.myCode,
-          myCodeUpper,
-        ]
-          .filter((x): x is string => Boolean(x && x.trim()))
-          .map((x) => x.trim().toUpperCase())
-      );
+      const activeRoom = mergedUser?.partner_id ? mergedUser.room_code?.toUpperCase() : undefined;
 
       const isRecentOptimistic = (id: string, prefix: string) => {
         if (!id.startsWith(prefix)) return false;
@@ -380,12 +347,9 @@ export function App() {
       };
 
       if (remote.coupleChat) {
-        const filteredChat =
-          roomCandidates.size > 0
-            ? remote.coupleChat.filter(
-                (m) => !m.room_code || roomCandidates.has(m.room_code.toUpperCase())
-              )
-            : remote.coupleChat;
+        const filteredChat = activeRoom
+          ? remote.coupleChat.filter((m) => m.room_code?.toUpperCase() === activeRoom)
+          : [];
         const normalizedRemote: CoupleChatMessage[] = filteredChat.map((m) => ({
           ...m,
           sender:
@@ -407,12 +371,9 @@ export function App() {
       }
 
       if (remote.coupleNudges) {
-        const filteredNudges =
-          roomCandidates.size > 0
-            ? remote.coupleNudges.filter(
-                (n) => !n.room_code || roomCandidates.has(n.room_code.toUpperCase())
-              )
-            : remote.coupleNudges;
+        const filteredNudges = activeRoom
+          ? remote.coupleNudges.filter((n) => n.room_code?.toUpperCase() === activeRoom)
+          : [];
         const normalizedNudges: CoupleNudge[] = filteredNudges.map((n) => ({
           ...n,
           from:
@@ -684,18 +645,12 @@ export function App() {
     }
   };
 
-  const handleResetDemoData = () => {
-    const seed = createSeedData();
-    setTasks(seed.tasks);
-    setLogs(seed.logs);
-  };
-
-  const myTasks = tasks.filter(
-    (t) => !currentUser || !t.user_id || t.user_id === currentUser.user_id
-  );
-  const myLogs = logs.filter(
-    (l) => !currentUser || !l.user_id || l.user_id === currentUser.user_id
-  );
+  const myTasks = currentUser
+    ? tasks.filter((t) => t.user_id === currentUser.user_id)
+    : [];
+  const myLogs = currentUser
+    ? logs.filter((l) => l.user_id === currentUser.user_id)
+    : [];
 
   const partnerTasks = currentUser?.partner_id
     ? tasks.filter((t) => t.user_id === currentUser.partner_id)
@@ -703,21 +658,40 @@ export function App() {
   const partnerLogs = currentUser?.partner_id
     ? logs.filter((l) => l.user_id === currentUser.partner_id)
     : [];
+  const realPartnerCheckins: PartnerCheckin[] = partnerLogs.flatMap((log) => {
+    const task = partnerTasks.find((item) => item.id === log.task_id);
+    if (!task || !log.photo || log.status !== 'completed') return [];
+    const id = `pc_${log.id}`;
+    const saved = partnerCheckins.find((item) => item.id === id);
+    return [{
+      id,
+      taskTitle: task.title,
+      emoji: task.emoji,
+      color: task.color,
+      completedAt: new Date(log.updated_at).toLocaleString('vi-VN', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+      }),
+      note: log.note,
+      photo: log.photo,
+      reaction: saved?.reaction || null,
+    }];
+  });
 
   const handleLoginUser = (user: AppUser) => {
+    setPairError(null);
+    setChatError(null);
     saveCurrentUser(user);
     setCurrentUser(user);
     setShowUserModal(false);
-    const hasServerPair = Boolean(user.room_code || user.partner_id);
+    const hasServerPair = Boolean(user.room_code && user.partner_id);
     setCoupleProfile((prev) => ({
       ...prev,
       myName: user.display_name,
       myCode: user.user_id.toUpperCase(),
-      partnerCode: (user.room_code || (hasServerPair ? prev.partnerCode : '')).toUpperCase(),
-      partnerName:
-        remoteUsers.find((u) => u.user_id === user.partner_id)?.display_name ||
-        user.partner_id ||
-        prev.partnerName,
+      partnerCode: (user.room_code || '').toUpperCase(),
+      partnerName: hasServerPair
+        ? remoteUsers.find((u) => u.user_id === user.partner_id)?.display_name || user.partner_id || ''
+        : '',
       isPaired: hasServerPair,
     }));
     setRemoteUsers((prev) => {
@@ -730,9 +704,14 @@ export function App() {
   };
 
   const handleLogoutUser = () => {
+    setPairError(null);
+    setChatError(null);
     clearCurrentUser();
     setCurrentUser(null);
     setCoupleProfile(createDefaultCoupleProfile());
+    setCoupleChat([]);
+    setNudges([]);
+    setPartnerCheckins([]);
     setShowUserModal(true);
   };
 
@@ -761,66 +740,63 @@ export function App() {
       : 0;
 
   const handleReactCheckin = (id: string, reaction: 'heart' | 'clap' | 'fire') => {
-    setPartnerCheckins((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const next = { ...item, reaction };
-        if (sheetUrl) syncPartnerCheckinToSheets(sheetUrl, next).catch(console.error);
-        return next;
-      })
-    );
+    const item = realPartnerCheckins.find((checkin) => checkin.id === id);
+    if (!item) return;
+    const next = { ...item, reaction };
+    setPartnerCheckins((prev) => {
+      const without = prev.filter((checkin) => checkin.id !== id);
+      return [next, ...without];
+    });
+    if (sheetUrl) syncPartnerCheckinToSheets(sheetUrl, next).catch(console.error);
   };
 
   const handleUpdateCoupleProfile = (next: CoupleProfile) => {
-    let resolvedProfile = next;
-    const roomCode = (next.partnerCode || next.myCode || '').trim().toUpperCase();
-
-    if (next.isPaired && currentUser) {
-      const matchedPartner = remoteUsers.find(
-        (u) =>
-          u.user_id !== currentUser.user_id &&
-          (u.user_id.toUpperCase() === roomCode ||
-            (u.room_code && u.room_code.toUpperCase() === roomCode))
-      );
-      const updatedUser: AppUser = {
-        ...currentUser,
-        room_code: roomCode,
-        partner_id: matchedPartner?.user_id || currentUser.partner_id,
-      };
-      saveCurrentUser(updatedUser);
-      setCurrentUser(updatedUser);
-
-      if (matchedPartner && (!next.partnerName || next.partnerName === 'Gia Hân')) {
-        resolvedProfile = { ...next, partnerName: matchedPartner.display_name };
-      }
-
-      if (sheetUrl) {
-        pairCoupleOnSheets(sheetUrl, {
-          user_id: currentUser.user_id,
-          partner_code: roomCode,
-          room_code: roomCode,
-          partner_name: resolvedProfile.partnerName,
+    const roomCode = next.partnerCode.trim().toUpperCase();
+    if (!currentUser || !sheetUrl) return;
+    setPairError(null);
+    if (!roomCode) {
+      unpairCoupleOnSheets(sheetUrl, currentUser.user_id)
+        .then((user) => {
+          const clearedUser: AppUser = { ...currentUser, ...user, partner_id: undefined, room_code: undefined };
+          saveCurrentUser(clearedUser);
+          setCurrentUser(clearedUser);
+          setCoupleProfile({ ...createDefaultCoupleProfile(), myName: clearedUser.display_name, myCode: clearedUser.user_id.toUpperCase() });
+          setCoupleChat([]);
+          setNudges([]);
+          setPartnerCheckins([]);
         })
-          .then((res) => {
-            if (res.user) {
-              const mergedUser: AppUser = { ...currentUser, ...res.user };
-              saveCurrentUser(mergedUser);
-              setCurrentUser(mergedUser);
-            }
-            if (res.partner) {
-              setCoupleProfile((prev) => ({
-                ...prev,
-                partnerName: res.partner?.display_name || prev.partnerName,
-              }));
-            }
-            handlePullFromSheets(sheetUrl);
-          })
-          .catch(console.error);
-      }
+        .catch((err) => setPairError(err instanceof Error ? err.message : 'Không thể rời phòng.'));
+      return;
     }
-
-    setCoupleProfile(resolvedProfile);
-    if (sheetUrl) syncCoupleProfileToSheets(sheetUrl, resolvedProfile).catch(console.error);
+    if (roomCode === currentUser.user_id.toUpperCase()) {
+      setPairError('Bạn không thể dùng mã của chính mình để kết nối.');
+      return;
+    }
+    setCoupleProfile({ ...next, isPaired: false });
+    pairCoupleOnSheets(sheetUrl, {
+      user_id: currentUser.user_id,
+      partner_code: roomCode,
+      room_code: roomCode,
+      partner_name: next.partnerName,
+    })
+      .then(async (res) => {
+        if (!res.user) throw new Error('Không tìm thấy tài khoản của bạn trên Google Sheet.');
+        const mergedUser: AppUser = { ...currentUser, ...res.user };
+        saveCurrentUser(mergedUser);
+        setCurrentUser(mergedUser);
+        const resolvedProfile: CoupleProfile = {
+          ...next,
+          myName: mergedUser.display_name,
+          myCode: mergedUser.user_id.toUpperCase(),
+          partnerCode: (mergedUser.room_code || roomCode).toUpperCase(),
+          partnerName: res.partner?.display_name || next.partnerName,
+          isPaired: Boolean(mergedUser.partner_id && mergedUser.room_code),
+        };
+        setCoupleProfile(resolvedProfile);
+        await syncCoupleProfileToSheets(sheetUrl, resolvedProfile);
+        handlePullFromSheets(sheetUrl, true, mergedUser);
+      })
+      .catch((err) => setPairError(err instanceof Error ? err.message : 'Không thể kết nối.'));
   };
 
   const handleSendNudge = (message: string) => {
@@ -840,6 +816,7 @@ export function App() {
   };
 
   const handleSendCoupleChat = (text: string) => {
+    setChatError(null);
     const now = new Date().toLocaleTimeString('vi-VN', {
       hour: '2-digit',
       minute: '2-digit',
@@ -853,7 +830,9 @@ export function App() {
       createdAt: now,
     };
     setCoupleChat((prev) => [...prev, newMsg]);
-    if (sheetUrl) syncCoupleChatToSheets(sheetUrl, newMsg).catch(console.error);
+    if (sheetUrl) syncCoupleChatToSheets(sheetUrl, newMsg).catch((err) => {
+      setChatError(err instanceof Error ? err.message : 'Không gửi được tin nhắn. Hãy thử lại.');
+    });
   };
 
   const calcWeeklyPercents = (taskList: Task[], logList: TaskLog[]) =>
@@ -1000,10 +979,9 @@ export function App() {
           {activeTab === 'couple' && (
             <CoupleView
               key="couple-tab"
-              myPercent={myPercent}
-              partnerTodayPercent={realPartnerTodayPercent}
               profile={coupleProfile}
-              partnerCheckins={partnerCheckins}
+              pairError={pairError}
+              partnerCheckins={realPartnerCheckins}
               nudges={nudges}
               onUpdateProfile={handleUpdateCoupleProfile}
               onReactCheckin={handleReactCheckin}
@@ -1016,6 +994,7 @@ export function App() {
               key="chat-tab"
               profile={coupleProfile}
               chatMessages={coupleChat}
+              chatError={chatError}
               onSendChat={handleSendCoupleChat}
               onGoToCouple={() => setActiveTab('couple')}
             />
@@ -1051,10 +1030,8 @@ export function App() {
               logs={myLogs}
               onChangeLang={setLang}
               onChangeTheme={setThemeMode}
-              onSaveSheetUrl={handleSaveSheetUrl}
               onPullFromSheets={() => handlePullFromSheets(sheetUrl, true)}
               onPushAllToSheets={handlePushAllToSheets}
-              onResetDemoData={handleResetDemoData}
             />
           )}
         </main>

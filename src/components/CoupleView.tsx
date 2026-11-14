@@ -7,9 +7,8 @@ import type {
 import { GIcon, TaskGlyph } from './GIcon';
 
 interface CoupleViewProps {
-  myPercent: number;
-  partnerTodayPercent?: number;
   profile: CoupleProfile;
+  pairError?: string | null;
   partnerCheckins: PartnerCheckin[];
   nudges: CoupleNudge[];
   onUpdateProfile: (next: CoupleProfile) => void;
@@ -24,9 +23,8 @@ const QUICK_NUDGES = [
 ];
 
 export const CoupleView: React.FC<CoupleViewProps> = ({
-  myPercent,
-  partnerTodayPercent,
   profile,
+  pairError,
   partnerCheckins,
   nudges,
   onUpdateProfile,
@@ -42,12 +40,10 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
   const [customNudge, setCustomNudge] = useState('');
   const [showPairEdit, setShowPairEdit] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState(profile.partnerCode);
-  const [partnerNameInput, setPartnerNameInput] = useState(profile.partnerName || 'Gia Hân');
+  const [partnerNameInput, setPartnerNameInput] = useState(profile.partnerName);
   const [joinRoomInput, setJoinRoomInput] = useState('');
 
   const startXRef = useRef(0);
-
-  const partnerPercent = typeof partnerTodayPercent === 'number' ? partnerTodayPercent : 0;
 
   const currentCard = partnerCheckins[cardIndex];
 
@@ -91,9 +87,9 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
     const randomCode = `RM-${Math.floor(1000 + Math.random() * 9000)}`;
     onUpdateProfile({
       ...profile,
-      partnerName: partnerNameInput.trim() || 'Gia Hân',
+      partnerName: partnerNameInput.trim(),
       partnerCode: randomCode,
-      isPaired: true,
+      isPaired: false,
     });
   };
 
@@ -102,7 +98,7 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
     if (!code) return;
     onUpdateProfile({
       ...profile,
-      partnerName: partnerNameInput.trim() || 'Gia Hân',
+      partnerName: partnerNameInput.trim(),
       partnerCode: code,
       isPaired: true,
     });
@@ -132,6 +128,12 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
             </p>
           </div>
 
+          {profile.partnerCode.startsWith('RM-') && (
+            <div className="mt-4 rounded-2xl bg-blue-50/60 p-3 text-center text-xs font-bold text-blue-900">
+              Đang chờ người ấy vào phòng {profile.partnerCode}
+            </div>
+          )}
+          {pairError && <p role="alert" className="mt-3 text-center text-xs font-semibold text-rose-600">{pairError}</p>}
           {/* Your Code */}
           <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50/50 p-3.5 text-center">
             <p className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
@@ -265,33 +267,6 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
           </div>
         )}
 
-        {/* Side-by-side % bars */}
-        <div className="mt-3.5 space-y-2.5">
-          <div>
-            <div className="flex justify-between text-xs font-bold">
-              <span className="text-pink-600">{profile.myName}</span>
-              <span className="text-blue-950">{myPercent}%</span>
-            </div>
-            <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-pink-100">
-              <div
-                className="h-full rounded-full bg-pink-400 transition-all duration-500"
-                style={{ width: `${myPercent}%` }}
-              />
-            </div>
-          </div>
-          <div>
-            <div className="flex justify-between text-xs font-bold">
-              <span className="text-blue-900">{profile.partnerName}</span>
-              <span className="text-blue-950">{partnerPercent}%</span>
-            </div>
-            <div className="mt-1 h-2.5 w-full overflow-hidden rounded-full bg-blue-100">
-              <div
-                className="h-full rounded-full bg-blue-900 transition-all duration-500"
-                style={{ width: `${partnerPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Quick Nudge / Poke Card */}

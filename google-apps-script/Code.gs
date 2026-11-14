@@ -311,6 +311,14 @@ function doPost(e) {
             (u.room_code && String(u.room_code).toUpperCase() === roomCode))
       );
 
+      if (!myUser) return jsonResponse({ ok: false, error: 'Không tìm thấy tài khoản của bạn.' });
+      if (!partnerUser && roomCode.indexOf('RM-') !== 0) {
+        return jsonResponse({ ok: false, error: 'Không tìm thấy mã của người ấy.' });
+      }
+      if (partnerUser && partnerUser.partner_id && partnerUser.partner_id !== myId) {
+        return jsonResponse({ ok: false, error: 'Phòng này đã có hai người.' });
+      }
+
       if (myUser) {
         myUser.room_code = roomCode;
         if (partnerUser) {
@@ -327,6 +335,24 @@ function doPost(e) {
         user: myUser ? toPublicUser(myUser) : null,
         partner: partnerUser ? toPublicUser(partnerUser) : null,
       });
+    }
+
+    if (action === 'unpair_couple') {
+      const sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(sheet, USER_HEADERS);
+      const myId = String(body.user_id || '').trim().toLowerCase();
+      const myUser = users.find((u) => String(u.user_id || '').toLowerCase() === myId);
+      if (!myUser) return jsonResponse({ ok: false, error: 'Không tìm thấy tài khoản của bạn.' });
+      const partnerUser = users.find((u) => u.user_id === myUser.partner_id);
+      if (partnerUser && partnerUser.partner_id === myUser.user_id) {
+        partnerUser.partner_id = '';
+        partnerUser.room_code = '';
+        upsertRow(sheet, USER_HEADERS, 'user_id', partnerUser.user_id, partnerUser);
+      }
+      myUser.partner_id = '';
+      myUser.room_code = '';
+      upsertRow(sheet, USER_HEADERS, 'user_id', myUser.user_id, myUser);
+      return jsonResponse({ ok: true, user: toPublicUser(myUser) });
     }
 
     if (action === 'upsert_couple_profile') {

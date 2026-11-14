@@ -112,56 +112,61 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 
   return (
     <div className="animate-ios-page space-y-4 pb-6">
-      {/* Couple 2-Person Comparison Stats (shown only when paired) */}
-      {coupleProfile?.isPaired && (
-        <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+      {/* Progress for one person or both people in a shared room. */}
+      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-              Thống kê so sánh 2 người (7 ngày)
+              {coupleProfile?.isPaired ? 'Tiến độ của hai người (7 ngày)' : 'Tiến độ của bạn (7 ngày)'}
             </h3>
+            {coupleProfile?.isPaired && (
             <span className="rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-500">
-              {myWeekAvg >= partnerWeekAvg
-                ? `${coupleProfile.myName} đang dẫn`
-                : `${coupleProfile.partnerName} đang dẫn`}
+              {myWeekAvg === partnerWeekAvg
+                ? 'Hai bạn ngang nhau'
+                : myWeekAvg > partnerWeekAvg
+                  ? `${coupleProfile.myName} đang dẫn`
+                  : `${coupleProfile.partnerName} đang dẫn`}
             </span>
+            )}
           </div>
 
-          <div className="mb-3 grid grid-cols-2 gap-2">
+          <div className={`mb-3 grid gap-2 ${coupleProfile?.isPaired ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div className="rounded-2xl bg-pink-50/70 p-2.5 text-center">
               <p className="text-[10px] font-bold text-slate-400">
-                Hôm nay ({coupleProfile.myName})
+                Hôm nay ({coupleProfile?.myName || 'Bạn'})
               </p>
               <p className="mt-0.5 text-base font-extrabold text-pink-500">{myPercent}%</p>
             </div>
-            <div className="rounded-2xl bg-blue-50/60 p-2.5 text-center">
+            {coupleProfile?.isPaired && <div className="rounded-2xl bg-blue-50/60 p-2.5 text-center">
               <p className="text-[10px] font-bold text-slate-400">
                 Hôm nay ({coupleProfile.partnerName})
               </p>
               <p className="mt-0.5 text-base font-extrabold text-blue-900">{partnerToday}%</p>
-            </div>
+            </div>}
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+          <div className={`mb-4 grid gap-2 text-center ${coupleProfile?.isPaired ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <div className="rounded-2xl bg-pink-50/70 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">
-                TB Tuần ({coupleProfile.myName})
+                TB Tuần ({coupleProfile?.myName || 'Bạn'})
               </p>
               <p className="mt-0.5 text-sm font-extrabold text-pink-500">{myWeekAvg}%</p>
             </div>
-            <div className="rounded-2xl bg-pink-50/70 p-2.5">
+            {coupleProfile?.isPaired && <div className="rounded-2xl bg-pink-50/70 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">Chênh lệch</p>
               <p className="mt-0.5 text-sm font-extrabold text-blue-950">
-                {myWeekAvg >= partnerWeekAvg
+                {myWeekAvg === partnerWeekAvg
+                  ? '0%'
+                  : myWeekAvg > partnerWeekAvg
                   ? `+${myWeekAvg - partnerWeekAvg}%`
                   : `${myWeekAvg - partnerWeekAvg}%`}
               </p>
-            </div>
-            <div className="rounded-2xl bg-blue-50/60 p-2.5">
+            </div>}
+            {coupleProfile?.isPaired && <div className="rounded-2xl bg-blue-50/60 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">
                 TB Tuần ({coupleProfile.partnerName})
               </p>
               <p className="mt-0.5 text-sm font-extrabold text-blue-900">{partnerWeekAvg}%</p>
-            </div>
+            </div>}
           </div>
 
           {myWeeklyPercents.length > 0 && (
@@ -175,13 +180,15 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                         <div
                           className="w-2.5 rounded-t-full bg-pink-400 transition-all duration-500"
                           style={{ height: `${Math.max(8, day.percent)}%` }}
-                          title={`${coupleProfile.myName}: ${day.percent}%`}
+                          title={`${coupleProfile?.myName || 'Bạn'}: ${day.percent}%`}
                         />
+                        {coupleProfile?.isPaired && (
                         <div
                           className="w-2.5 rounded-t-full bg-blue-900 transition-all duration-500"
                           style={{ height: `${Math.max(8, pVal)}%` }}
                           title={`${coupleProfile.partnerName}: ${pVal}%`}
                         />
+                        )}
                       </div>
                       <span className="text-[10px] font-bold text-slate-400">{day.label}</span>
                     </div>
@@ -192,17 +199,18 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
               <div className="mt-3 flex justify-center gap-4 text-[11px] font-bold">
                 <span className="flex items-center gap-1.5 text-blue-950">
                   <span className="h-2.5 w-2.5 rounded-full bg-pink-400" />
-                  {coupleProfile.myName}
+                  {coupleProfile?.myName || 'Bạn'}
                 </span>
+                {coupleProfile?.isPaired && (
                 <span className="flex items-center gap-1.5 text-blue-950">
                   <span className="h-2.5 w-2.5 rounded-full bg-blue-900" />
                   {coupleProfile.partnerName}
                 </span>
+                )}
               </div>
             </>
           )}
         </div>
-      )}
       {/* iOS Sliding Segmented Control */}
       <div className="relative grid grid-cols-3 rounded-2xl border border-pink-100 bg-white p-1 shadow-[0_4px_20px_-6px_rgba(236,72,153,0.10)]">
         {/* Sliding pill */}
