@@ -33,7 +33,7 @@ function makeMockCheckinPhoto(
 
 export function createDefaultCoupleProfile(): CoupleProfile {
   return {
-    myName: 'Bạn',
+    myName: 'Tô Khôi',
     myCode: 'DL-4829',
     partnerName: 'Gia Hân',
     partnerCode: '',

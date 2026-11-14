@@ -107,7 +107,12 @@ export function App() {
   const [coupleProfile, setCoupleProfile] = useState<CoupleProfile>(() => {
     try {
       const raw = localStorage.getItem('daily_miniapp_couple_profile_v1');
-      if (raw) return JSON.parse(raw) as CoupleProfile;
+      if (raw) {
+        const parsed = JSON.parse(raw) as CoupleProfile;
+        if (parsed.partnerName === 'Minh Anh') parsed.partnerName = 'Gia Hân';
+        if (parsed.myName === 'Bạn') parsed.myName = 'Tô Khôi';
+        return parsed;
+      }
     } catch {
       // ignore
     }
@@ -252,11 +257,6 @@ export function App() {
 
     detectWeather(10.8231, 106.6297);
   }, []);
-
-  const cycleWeatherMode = () => {
-    const order: WeatherMode[] = ['sakura', 'rain', 'sparkle', 'off'];
-    setWeatherMode((curr) => order[(order.indexOf(curr) + 1) % order.length]);
-  };
 
   const handlePullFromSheets = async (url = sheetUrl, allowEmpty = false) => {
     if (!url) return;
@@ -727,46 +727,6 @@ export function App() {
                 {currentUser ? currentUser.display_name : 'Đăng nhập'}
               </span>
             </button>
-
-            {/* Weather Mode Toggle Pill */}
-            <button
-              type="button"
-              onClick={cycleWeatherMode}
-              className="ios-press flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
-              title="Hiệu ứng thời tiết"
-            >
-              <GIcon
-                name={
-                  weatherMode === 'rain'
-                    ? 'rainy'
-                    : weatherMode === 'sparkle'
-                      ? 'auto_awesome'
-                      : 'local_florist'
-                }
-                size={14}
-                className={weatherMode === 'off' ? 'opacity-40' : 'text-pink-400'}
-              />
-              <span>
-                {weatherMode === 'sakura' && t.weatherSakura}
-                {weatherMode === 'rain' && t.weatherRain}
-                {weatherMode === 'sparkle' && t.weatherSparkle}
-                {weatherMode === 'off' && t.weatherOff}
-              </span>
-            </button>
-
-            {activeTab === 'today' && (
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingTask(null);
-                  setIsAddModalOpen(true);
-                }}
-                className="ios-press flex h-9 w-9 items-center justify-center rounded-2xl bg-blue-900 text-white shadow-md shadow-blue-900/20"
-                aria-label="Thêm việc"
-              >
-                <GIcon name="add" size={20} weight={600} />
-              </button>
-            )}
           </div>
         </header>
 

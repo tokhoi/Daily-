@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Translations } from '../i18n/translations';
 import type { Task } from '../types/habit';
 import { GIcon } from './GIcon';
+import { Bear3DCanvas } from './Bear3DStudio';
 
 interface PlushSvgProps {
   clapping?: boolean;
@@ -114,8 +115,8 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
   return (
     <div className="animate-ios-backdrop fixed inset-0 z-50 flex items-center justify-center bg-blue-950/30 px-5 backdrop-blur-[3px]">
       <div className="animate-ios-pop w-full max-w-[360px] rounded-[32px] border border-pink-200 bg-gradient-to-b from-white via-pink-50/40 to-white p-6 text-center shadow-2xl">
-        <div className="mx-auto flex justify-center">
-          <JellycatPlushSvg size={104} clapping={false} />
+        <div className="mx-auto w-full max-w-[180px]">
+          <Bear3DCanvas anim="wave" variant="pink" height={145} />
         </div>
 
         <span className="mt-1 inline-block rounded-full bg-pink-100 px-3 py-0.5 text-[11px] font-extrabold text-blue-900">
@@ -196,7 +197,9 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
         </button>
 
         <div className="flex flex-col items-center text-center">
-          <JellycatPlushSvg size={96} clapping={false} />
+          <div className="w-full max-w-[180px]">
+            <Bear3DCanvas anim="wave" variant="pink" height={145} />
+          </div>
           <h3 className="mt-2 text-base font-extrabold text-blue-950">
             {pendingTasks.length > 0
               ? t.welcomePending(pendingTasks.length)
@@ -275,8 +278,8 @@ export const CelebrationMascotModal: React.FC<CelebrationMascotModalProps> = ({
         className="animate-ios-pop w-full max-w-[340px] rounded-[32px] border border-pink-200 bg-gradient-to-b from-white via-pink-50/60 to-white p-6 text-center shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto flex justify-center">
-          <JellycatPlushSvg size={124} clapping={true} />
+        <div className="mx-auto w-full max-w-[190px]">
+          <Bear3DCanvas anim="clap" variant="pink" height={160} />
         </div>
 
         <span className="mt-2 inline-block rounded-full bg-pink-100 px-3 py-1 text-[11px] font-extrabold text-blue-900">
