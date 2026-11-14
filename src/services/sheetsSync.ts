@@ -166,7 +166,6 @@ export async function fetchFromSheets(
     .map((u: Partial<AppUser>) => ({
       user_id: String(u.user_id),
       display_name: String(u.display_name),
-      pin: u.pin ? String(u.pin) : '',
       partner_id: u.partner_id ? String(u.partner_id) : undefined,
       room_code: u.room_code ? String(u.room_code) : undefined,
       created_at: u.created_at ? String(u.created_at) : new Date().toISOString(),
@@ -220,8 +219,11 @@ export async function fetchFromSheets(
   };
 }
 
-async function postToSheets(scriptUrl: string, payload: Record<string, unknown>): Promise<void> {
-  if (!scriptUrl) return;
+async function postToSheets(
+  scriptUrl: string,
+  payload: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  if (!scriptUrl) return {};
   const res = await fetch(scriptUrl, {
     method: 'POST',
     redirect: 'follow',
@@ -230,8 +232,108 @@ async function postToSheets(scriptUrl: string, payload: Record<string, unknown>)
     body: JSON.stringify(payload),
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Post failed');
+  const data = (await res.json()) as Record<string, unknown>;
+  if (!data.ok) throw new Error(String(data.error || 'Post failed'));
+  return data;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const bytes = new TextEncoder().encode(input);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+interface LocalAuthRecord extends AppUser {
+  password_salt: string;
+  password_hash: string;
+}
+
+const LOCAL_AUTH_KEY = 'daily_miniapp_local_auth_v1';
+
+function loadLocalAuthUsers(): LocalAuthRecord[] {
+  try {
+    const raw = localStorage.getItem(LOCAL_AUTH_KEY);
+    return raw ? (JSON.parse(raw) as LocalAuthRecord[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function registerAccount(
+  scriptUrl: string,
+  params: { user_id: string; display_name: string; password: string }
+): Promise<AppUser> {
+  const cleanId = params.user_id.trim().toLowerCase();
+  const displayName = params.display_name.trim();
+
+  if (scriptUrl) {
+    const res = await postToSheets(scriptUrl, {
+      action: 'register',
+      user_id: cleanId,
+      display_name: displayName,
+      password: params.password,
+    });
+    return res.user as AppUser;
+  }
+
+  const localUsers = loadLocalAuthUsers();
+  if (localUsers.some((u) => u.user_id === cleanId)) {
+    throw new Error('Tên đăng nhập này đã tồn tại.');
+  }
+  const salt = crypto.randomUUID();
+  const hash = await sha256Hex(`${salt}:${params.password}`);
+  const token = crypto.randomUUID();
+  const record: LocalAuthRecord = {
+    user_id: cleanId,
+    display_name: displayName,
+    password_salt: salt,
+    password_hash: hash,
+    auth_token: token,
+    created_at: new Date().toISOString(),
+  };
+  localStorage.setItem(LOCAL_AUTH_KEY, JSON.stringify([...localUsers, record]));
+  return {
+    user_id: record.user_id,
+    display_name: record.display_name,
+    auth_token: record.auth_token,
+    created_at: record.created_at,
+  };
+}
+
+export async function loginAccount(
+  scriptUrl: string,
+  params: { user_id: string; password: string }
+): Promise<AppUser> {
+  const cleanId = params.user_id.trim().toLowerCase();
+
+  if (scriptUrl) {
+    const res = await postToSheets(scriptUrl, {
+      action: 'login',
+      user_id: cleanId,
+      password: params.password,
+    });
+    return res.user as AppUser;
+  }
+
+  const localUsers = loadLocalAuthUsers();
+  const found = localUsers.find((u) => u.user_id === cleanId);
+  if (!found) {
+    throw new Error('Sai tên đăng nhập hoặc mật khẩu.');
+  }
+  const hash = await sha256Hex(`${found.password_salt}:${params.password}`);
+  if (hash !== found.password_hash) {
+    throw new Error('Sai tên đăng nhập hoặc mật khẩu.');
+  }
+  return {
+    user_id: found.user_id,
+    display_name: found.display_name,
+    partner_id: found.partner_id,
+    room_code: found.room_code,
+    auth_token: crypto.randomUUID(),
+    created_at: found.created_at,
+  };
 }
 
 export async function syncTaskToSheets(scriptUrl: string, task: Task): Promise<void> {

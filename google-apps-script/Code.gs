@@ -23,9 +23,11 @@ const SHEET_PARTNER_CHECKINS = 'partner_checkins';
 const USER_HEADERS = [
   'user_id',
   'display_name',
-  'pin',
+  'password_hash',
+  'password_salt',
   'partner_id',
   'room_code',
+  'auth_token',
   'created_at',
 ];
 
@@ -160,6 +162,30 @@ function upsertRow(sheet, headers, keyField, keyValue, obj) {
   }
 }
 
+function hashPassword(salt, password) {
+  const raw = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    salt + ':' + password,
+    Utilities.Charset.UTF_8
+  );
+  return raw
+    .map(function (b) {
+      var v = (b < 0 ? b + 256 : b).toString(16);
+      return v.length === 1 ? '0' + v : v;
+    })
+    .join('');
+}
+
+function toPublicUser(u) {
+  return {
+    user_id: u.user_id,
+    display_name: u.display_name,
+    partner_id: u.partner_id || null,
+    room_code: u.room_code || null,
+    created_at: u.created_at || null,
+  };
+}
+
 function jsonResponse(payload) {
   return ContentService.createTextOutput(JSON.stringify(payload)).setMimeType(
     ContentService.MimeType.JSON
@@ -178,7 +204,7 @@ function doGet(e) {
 
     const tasks = sheetToObjects(tasksSheet, TASK_HEADERS);
     const logs = sheetToObjects(logsSheet, LOG_HEADERS);
-    const users = sheetToObjects(usersSheet, USER_HEADERS);
+    const users = sheetToObjects(usersSheet, USER_HEADERS).map(toPublicUser);
     const coupleProfiles = sheetToObjects(profilesSheet, COUPLE_PROFILE_HEADERS);
     const coupleChat = sheetToObjects(chatSheet, COUPLE_CHAT_HEADERS);
     const coupleNudges = sheetToObjects(nudgesSheet, COUPLE_NUDGE_HEADERS);
@@ -214,6 +240,54 @@ function doPost(e) {
       const sheet = getOrCreateSheet(SHEET_LOGS, LOG_HEADERS);
       upsertRow(sheet, LOG_HEADERS, 'id', body.log.id, body.log);
       return jsonResponse({ ok: true });
+    }
+
+    if (action === 'register') {
+      const sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(sheet, USER_HEADERS);
+      const cleanId = String(body.user_id || '').trim().toLowerCase();
+      const displayName = String(body.display_name || '').trim();
+      const password = String(body.password || '');
+
+      if (!cleanId || !displayName || password.length < 6) {
+        return jsonResponse({ ok: false, error: 'Thông tin đăng ký chưa hợp lệ (mật khẩu >= 6 ký tự).' });
+      }
+      if (users.some((u) => String(u.user_id).toLowerCase() === cleanId)) {
+        return jsonResponse({ ok: false, error: 'Tên đăng nhập này đã tồn tại.' });
+      }
+
+      const salt = Utilities.getUuid();
+      const passwordHash = hashPassword(salt, password);
+      const token = Utilities.getUuid();
+      const newUser = {
+        user_id: cleanId,
+        display_name: displayName,
+        password_hash: passwordHash,
+        password_salt: salt,
+        partner_id: body.partner_id || '',
+        room_code: body.room_code || '',
+        auth_token: token,
+        created_at: new Date().toISOString(),
+      };
+      upsertRow(sheet, USER_HEADERS, 'user_id', cleanId, newUser);
+      return jsonResponse({ ok: true, user: Object.assign(toPublicUser(newUser), { auth_token: token }) });
+    }
+
+    if (action === 'login') {
+      const sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(sheet, USER_HEADERS);
+      const cleanId = String(body.user_id || '').trim().toLowerCase();
+      const password = String(body.password || '');
+      const found = users.find((u) => String(u.user_id).toLowerCase() === cleanId);
+
+      if (!found || !found.password_salt || hashPassword(found.password_salt, password) !== found.password_hash) {
+        return jsonResponse({ ok: false, error: 'Sai tên đăng nhập hoặc mật khẩu.' });
+      }
+
+      const token = Utilities.getUuid();
+      found.auth_token = token;
+      upsertRow(sheet, USER_HEADERS, 'user_id', found.user_id, found);
+      return jsonResponse({ ok: true, user: Object.assign(toPublicUser(found), { auth_token: token }) });
     }
 
     if (action === 'upsert_user') {

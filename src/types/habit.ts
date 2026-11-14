@@ -52,9 +52,9 @@ export interface PartnerCheckin {
 export interface AppUser {
   user_id: string;
   display_name: string;
-  pin: string;
   partner_id?: string;
   room_code?: string;
+  auth_token?: string;
   created_at: string;
 }
 

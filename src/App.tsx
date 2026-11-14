@@ -28,6 +28,7 @@ import {
 } from './i18n/translations';
 import {
   bulkSyncToSheets,
+  clearCurrentUser,
   fetchFromSheets,
   getSavedSheetUrl,
   loadCurrentUser,
@@ -43,7 +44,6 @@ import {
   syncLogToSheets,
   syncPartnerCheckinToSheets,
   syncTaskToSheets,
-  syncUserToSheets,
 } from './services/sheetsSync';
 import type {
   AppTab,
@@ -553,9 +553,12 @@ export function App() {
       const idx = prev.findIndex((u) => u.user_id === user.user_id);
       return idx >= 0 ? prev.map((u, i) => (i === idx ? user : u)) : [...prev, user];
     });
-    if (sheetUrl) {
-      syncUserToSheets(sheetUrl, user).catch(console.error);
-    }
+  };
+
+  const handleLogoutUser = () => {
+    clearCurrentUser();
+    setCurrentUser(null);
+    setShowUserModal(true);
   };
 
   const todayKey = toDateKey(new Date());
@@ -1015,12 +1018,13 @@ export function App() {
           />
         )}
 
-        {/* User Login / Switch Modal */}
+        {/* User Login / Register Modal */}
         {(showUserModal || (!showSetupOverlay && !currentUser)) && (
           <UserLoginModal
-            existingUsers={remoteUsers}
+            sheetUrl={sheetUrl}
             currentUser={currentUser}
-            onLogin={handleLoginUser}
+            onAuthSuccess={handleLoginUser}
+            onLogout={handleLogoutUser}
             onClose={currentUser ? () => setShowUserModal(false) : undefined}
           />
         )}
