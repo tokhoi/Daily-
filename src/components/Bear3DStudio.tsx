@@ -114,30 +114,6 @@ function createTorsoGeometry(): THREE.BufferGeometry {
 }
 
 /**
- * Creates a smooth tapered arm/paw limb using LatheGeometry.
- */
-function createLimbGeometry(
-  topR: number,
-  midR: number,
-  pawR: number,
-  length: number
-): THREE.BufferGeometry {
-  const pts = [
-    new THREE.Vector2(0.0, 0.0),
-    new THREE.Vector2(topR * 0.9, -0.02),
-    new THREE.Vector2(topR, -length * 0.18),
-    new THREE.Vector2(midR, -length * 0.55),
-    new THREE.Vector2(pawR, -length * 0.85),
-    new THREE.Vector2(pawR * 0.72, -length * 0.97),
-    new THREE.Vector2(0.0, -length),
-  ];
-  const spline = new THREE.SplineCurve(pts);
-  const geo = new THREE.LatheGeometry(spline.getPoints(28), 28);
-  geo.computeVertexNormals();
-  return geo;
-}
-
-/**
  * Creates a real extruded 3D heart geometry for floating celebration particles.
  */
 function createHeartGeometry(): THREE.BufferGeometry {
@@ -415,23 +391,31 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rightCheek.position.set(0.52, -0.1, 0.67);
     headGroup.add(leftCheek, rightCheek);
 
-    // Sculpted Arms (tapered Lathe limbs tucked at shoulders)
-    const armGeo = createLimbGeometry(0.22, 0.21, 0.24, 0.74);
-    const leftArm = new THREE.Group();
-    leftArm.position.set(-0.72, -0.12, 0.08);
-    const leftArmMesh = new THREE.Mesh(armGeo, furMat);
-    leftArmMesh.rotation.z = 0.34;
-    leftArmMesh.rotation.x = -0.18;
-    leftArm.add(leftArmMesh);
-    bear.add(leftArm);
+    // Smooth Rounded Chubby Arms + Paw Pads (no flat caps or sharp edges)
+    const armGeo = new THREE.CapsuleGeometry(0.185, 0.36, 16, 24);
+    const makeArm = (side: -1 | 1) => {
+      const armPivot = new THREE.Group();
+      armPivot.position.set(side * 0.72, -0.1, 0.14);
 
-    const rightArm = new THREE.Group();
-    rightArm.position.set(0.72, -0.12, 0.08);
-    const rightArmMesh = new THREE.Mesh(armGeo, furMat);
-    rightArmMesh.rotation.z = -0.34;
-    rightArmMesh.rotation.x = -0.18;
-    rightArm.add(rightArmMesh);
-    bear.add(rightArm);
+      const armHolder = new THREE.Group();
+      // Tilt outward (-side on Z in Three.js right-hand rule) & slightly forward
+      armHolder.rotation.z = side * -0.42;
+      armHolder.rotation.x = -0.22;
+      armHolder.position.set(side * 0.08, -0.22, 0.05);
+
+      const mesh = new THREE.Mesh(armGeo, furMat);
+      const pawPad = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 14), bellyMat);
+      pawPad.scale.set(0.9, 0.9, 0.4);
+      pawPad.position.set(0, -0.22, 0.14);
+
+      armHolder.add(mesh, pawPad);
+      armPivot.add(armHolder);
+      return armPivot;
+    };
+
+    const leftArm = makeArm(-1);
+    const rightArm = makeArm(1);
+    bear.add(leftArm, rightArm);
 
     // Sculpted Chubby Legs + Feet with Pink Paw Pads
     const makeFoot = (side: -1 | 1) => {
@@ -553,7 +537,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         });
       } else if (currentAnim === 'wave') {
         bear.position.y = Math.sin(t * 2.4) * 0.05;
-        rightArm.rotation.z = -2.35 + Math.sin(t * 8) * 0.32;
+        rightArm.rotation.z = 2.15 + Math.sin(t * 8) * 0.32;
         headGroup.rotation.z = -0.1;
         leftBrow.position.y = 0.27;
         rightBrow.position.y = 0.27;
@@ -622,10 +606,94 @@ const ANIM_PRESETS: { id: Bear3DAnim; label: string; icon: string }[] = [
   { id: 'sleep', label: 'Ngủ khò khò', icon: 'bedtime' },
 ];
 
+interface BearChatMessage {
+  id: string;
+  sender: 'user' | 'bear';
+  text: string;
+  time: string;
+}
+
+const QUICK_CHAT_PROMPTS = [
+  'Chào gấu!',
+  'Hôm nay mình xong 100% rồi',
+  'Nhảy múa đi gấu ơi',
+  'Mình buồn ngủ quá',
+  'Nhắc mình làm task đi',
+];
+
+function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
+  const lower = text.toLowerCase();
+  if (lower.includes('ngủ') || lower.includes('mệt') || lower.includes('khò')) {
+    return {
+      reply: 'Ngủ ngoan nha, gấu ôm bạn một cái cho đỡ mệt nè 💤',
+      anim: 'sleep',
+    };
+  }
+  if (lower.includes('nhảy') || lower.includes('múa') || lower.includes('vui') || lower.includes('hát')) {
+    return {
+      reply: 'Quẩy lên nào!! Gấu nhảy cổ vũ bạn hết mình luôn ✨',
+      anim: 'dance',
+    };
+  }
+  if (lower.includes('100%') || lower.includes('xong') || lower.includes('giỏi') || lower.includes('hoàn thành')) {
+    return {
+      reply: 'Quá đỉnh luôn!! Gấu vỗ tay rào rào khen bạn nè 👏💗',
+      anim: 'clap',
+    };
+  }
+  if (lower.includes('nhắc') || lower.includes('chọc') || lower.includes('task') || lower.includes('học')) {
+    return {
+      reply: 'Này bạn ơi! Dậy tick nốt task hôm nay đi nào, đừng lười nhaa 🔔',
+      anim: 'poke',
+    };
+  }
+  if (lower.includes('chào') || lower.includes('hello') || lower.includes('hi')) {
+    return {
+      reply: 'Chào bạn thân yêu! Gấu vẫy tay chúc bạn một ngày siêu năng lượng ☀️',
+      anim: 'wave',
+    };
+  }
+  return {
+    reply: 'Gấu nghe bạn rồi nè! Nhớ uống đủ nước và giữ streak nhé 🧸💕',
+    anim: 'idle',
+  };
+}
+
 export const Bear3DStudio: React.FC = () => {
   const [anim, setAnim] = useState<Bear3DAnim>('idle');
   const [variant, setVariant] = useState<Bear3DVariant>('pink');
   const [tapCount, setTapCount] = useState(0);
+  const [chatInput, setChatInput] = useState('');
+  const [messages, setMessages] = useState<BearChatMessage[]>([
+    {
+      id: 'welcome_bear',
+      sender: 'bear',
+      text: 'Chào bạn! Nhắn tin hoặc chạm vào mình để chơi cùng nha 🧸✨',
+      time: 'Bây giờ',
+    },
+  ]);
+
+  const latestBearMsg = [...messages].reverse().find((m) => m.sender === 'bear')?.text;
+
+  const handleSendChat = (textToSend?: string) => {
+    const content = (textToSend ?? chatInput).trim();
+    if (!content) return;
+
+    const now = new Date().toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const { reply, anim: nextAnim } = getBearReply(content);
+    setAnim(nextAnim);
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `u_${Date.now()}`, sender: 'user', text: content, time: now },
+      { id: `b_${Date.now() + 1}`, sender: 'bear', text: reply, time: now },
+    ]);
+    if (!textToSend) setChatInput('');
+  };
 
   return (
     <div className="animate-ios-page space-y-4 pb-6">
@@ -668,10 +736,17 @@ export const Bear3DStudio: React.FC = () => {
           </div>
         </div>
 
+        {/* Speech Bubble from Bear */}
+        {latestBearMsg && (
+          <div className="mt-2.5 rounded-2xl border border-pink-100 bg-white/90 px-3 py-2 text-center text-xs font-semibold text-blue-950 shadow-xs">
+            {latestBearMsg}
+          </div>
+        )}
+
         <Bear3DCanvas
           anim={anim}
           variant={variant}
-          height={300}
+          height={285}
           onTapBear={() => setTapCount((c) => c + 1)}
         />
 
@@ -681,7 +756,7 @@ export const Bear3DStudio: React.FC = () => {
       </div>
 
       {/* Animation Presets Grid */}
-      <div className="rounded-[24px] border border-pink-100/90 bg-white/95 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
         <h3 className="mb-3 text-xs font-extrabold tracking-wide text-blue-950 uppercase">
           Hiệu ứng & Chuyển động của Gấu
         </h3>
@@ -695,12 +770,12 @@ export const Bear3DStudio: React.FC = () => {
                 onClick={() => setAnim(preset.id)}
                 className={`ios-press flex items-center gap-2.5 rounded-2xl border px-3.5 py-3 text-left transition ${
                   active
-                    ? 'border-pink-300 bg-gradient-to-r from-pink-50 to-blue-50 text-blue-950 shadow-xs'
+                    ? 'border-pink-300 bg-pink-100/80 text-blue-950 shadow-xs'
                     : 'border-pink-100 bg-white text-slate-600 hover:border-pink-200'
                 }`}
               >
                 <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
                     active ? 'bg-blue-900 text-white' : 'bg-pink-50 text-pink-400'
                   }`}
                 >
@@ -710,6 +785,78 @@ export const Bear3DStudio: React.FC = () => {
               </button>
             );
           })}
+        </div>
+      </div>
+
+      {/* Chat Box with Bear */}
+      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
+            Khung Chat với Bé Gấu
+          </h3>
+          <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-500">
+            Online
+          </span>
+        </div>
+
+        {/* Message List */}
+        <div className="mb-3 max-h-48 space-y-2 overflow-y-auto pr-1">
+          {messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${
+                msg.sender === 'user' ? 'items-end' : 'items-start'
+              }`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed font-medium ${
+                  msg.sender === 'user'
+                    ? 'rounded-br-sm bg-blue-900 text-white'
+                    : 'rounded-bl-sm bg-pink-50 text-blue-950'
+                }`}
+              >
+                {msg.text}
+              </div>
+              <span className="mt-0.5 px-1 text-[10px] text-slate-400">
+                {msg.time}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Quick Prompts */}
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {QUICK_CHAT_PROMPTS.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => handleSendChat(q)}
+              className="ios-press rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-semibold text-blue-900"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        {/* Input Row */}
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendChat();
+            }}
+            placeholder="Nhắn gì đó cho bé gấu..."
+            className="flex-1 rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs font-medium text-blue-950 outline-hidden focus:border-pink-300"
+          />
+          <button
+            type="button"
+            onClick={() => handleSendChat()}
+            className="ios-press flex items-center justify-center rounded-2xl bg-blue-900 px-4 text-xs font-bold text-white"
+          >
+            Gửi
+          </button>
         </div>
       </div>
     </div>

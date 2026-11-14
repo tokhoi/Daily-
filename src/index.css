@@ -297,8 +297,9 @@
 
 .theme-dark .bg-white\/80,
 .theme-dark .bg-white\/85,
-.theme-dark .bg-white\/90 {
-  background-color: rgba(22, 32, 51, 0.88) !important;
+.theme-dark .bg-white\/90,
+.theme-dark .bg-white\/95 {
+  background-color: rgba(22, 32, 51, 0.9) !important;
 }
 
 .theme-dark .border-pink-100,
@@ -351,6 +352,14 @@
 
 .theme-dark .from-white {
   --tw-gradient-from: #162033 !important;
+}
+
+.theme-dark .from-pink-50 {
+  --tw-gradient-from: rgba(244, 114, 182, 0.2) !important;
+}
+
+.theme-dark .to-blue-50 {
+  --tw-gradient-to: rgba(59, 130, 246, 0.2) !important;
 }
 
 .theme-dark .via-pink-50\/40,
