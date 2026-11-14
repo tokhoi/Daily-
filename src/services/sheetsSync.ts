@@ -233,7 +233,15 @@ async function postToSheets(
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = (await res.json()) as Record<string, unknown>;
-  if (!data.ok) throw new Error(String(data.error || 'Post failed'));
+  if (!data.ok) {
+    const errMsg = String(data.error || 'Post failed');
+    if (errMsg.includes('Unknown action: register') || errMsg.includes('Unknown action: login')) {
+      throw new Error(
+        'Google Apps Script đang chạy bản cũ. Hãy copy file Code.gs mới dán vào Apps Script và chọn Deploy -> Manage deployments -> New version!'
+      );
+    }
+    throw new Error(errMsg);
+  }
   return data;
 }
 
