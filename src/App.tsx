@@ -15,6 +15,7 @@ import {
 import { PhotoCheckModal } from './components/PhotoCheckModal';
 import {
   createDefaultCoupleProfile,
+  createMockCoupleChat,
   createMockNudges,
   createMockPartnerCheckins,
 } from './data/coupleSeed';
@@ -38,6 +39,7 @@ import {
 } from './services/sheetsSync';
 import type {
   AppTab,
+  CoupleChatMessage,
   CoupleNudge,
   CoupleProfile,
   DailyNote,
@@ -123,6 +125,18 @@ export function App() {
     return createMockNudges();
   });
 
+  const [coupleChat, setCoupleChat] = useState<CoupleChatMessage[]>(() => {
+    try {
+      const raw = localStorage.getItem('daily_miniapp_couple_chat_v1');
+      if (raw) return JSON.parse(raw) as CoupleChatMessage[];
+    } catch {
+      // ignore
+    }
+    return createMockCoupleChat();
+  });
+
+  const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(true);
+
   const [sheetUrl, setSheetUrl] = useState<string>(() => getSavedSheetUrl());
   const [syncState, setSyncState] = useState<SyncState>(() =>
     getSavedSheetUrl() ? 'synced' : 'local'
@@ -148,6 +162,10 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('daily_miniapp_couple_nudges_v1', JSON.stringify(nudges));
   }, [nudges]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_miniapp_couple_chat_v1', JSON.stringify(coupleChat));
+  }, [coupleChat]);
 
   useEffect(() => {
     localStorage.setItem('daily_miniapp_lang_v1', lang);
@@ -498,6 +516,43 @@ export function App() {
     setNudges((prev) => [newNudge, ...prev].slice(0, 12));
   };
 
+  const handleSendCoupleChat = (text: string) => {
+    const now = new Date().toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    setCoupleChat((prev) => [
+      ...prev,
+      { id: `chat_${Date.now()}`, sender: 'me', text, createdAt: now },
+    ]);
+  };
+
+  const myWeeklyPercents = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const dk = toDateKey(d);
+    const dayLabel = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
+    const scheduled = tasks.filter((t) => isTaskScheduledForDate(t, dk));
+    const active = scheduled.filter((t) => {
+      const log = logs.find((l) => l.task_id === t.id && l.log_date === dk);
+      return log?.status !== 'skipped';
+    });
+    const pct =
+      active.length > 0
+        ? Math.round(
+            (active.reduce((acc, task) => {
+              const log = logs.find((l) => l.task_id === task.id && l.log_date === dk);
+              return acc + getLogCompletionRatio(task, log);
+            }, 0) /
+              active.length) *
+              100
+          )
+        : 0;
+    return { label: dayLabel, percent: pct };
+  });
+
+  const latestPartnerNudge = nudges.find((n) => n.from === 'partner');
+
   const tabOrder: AppTab[] = ['today', 'couple', 'bear3d', 'summary', 'settings'];
   const activeTabIndex = Math.max(0, tabOrder.indexOf(activeTab));
 
@@ -604,6 +659,45 @@ export function App() {
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
+          {/* Partner Nudge Notice on App Open */}
+          {showNudgeNotice && latestPartnerNudge && (
+            <div className="animate-ios-pop mb-4 flex items-center justify-between gap-3 rounded-[22px] border border-pink-200 bg-gradient-to-r from-pink-50 via-white to-blue-50 p-3.5 shadow-[0_8px_24px_-8px_rgba(244,114,182,0.3)]">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-pink-400 text-white shadow-xs">
+                  <GIcon name="notifications_active" size={18} />
+                </span>
+                <div>
+                  <p className="text-[11px] font-extrabold text-pink-500 uppercase">
+                    Nhắc nhở từ {coupleProfile.partnerName} • {latestPartnerNudge.createdAt}
+                  </p>
+                  <p className="text-xs font-bold text-blue-950">
+                    "{latestPartnerNudge.message}"
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('couple');
+                    setShowNudgeNotice(false);
+                  }}
+                  className="ios-press rounded-xl bg-blue-900 px-2.5 py-1.5 text-[11px] font-bold text-white"
+                >
+                  Trả lời
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNudgeNotice(false)}
+                  className="ios-press flex h-7 w-7 items-center justify-center rounded-full bg-pink-100/80 text-slate-500"
+                  aria-label="Đóng thông báo"
+                >
+                  <GIcon name="close" size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'today' && (
             <TodayView
               key="today-tab"
@@ -637,12 +731,15 @@ export function App() {
             <CoupleView
               key="couple-tab"
               myPercent={myPercent}
+              myWeeklyPercents={myWeeklyPercents}
               profile={coupleProfile}
               partnerCheckins={partnerCheckins}
               nudges={nudges}
+              chatMessages={coupleChat}
               onUpdateProfile={setCoupleProfile}
               onReactCheckin={handleReactCheckin}
               onSendNudge={handleSendNudge}
+              onSendChat={handleSendCoupleChat}
             />
           )}
 

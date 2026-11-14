@@ -55,6 +55,13 @@ export interface CoupleNudge {
   createdAt: string;
 }
 
+export interface CoupleChatMessage {
+  id: string;
+  sender: 'me' | 'partner';
+  text: string;
+  createdAt: string;
+}
+
 export interface TaskLog {
   /** Composite key: `${task_id}_${log_date}` */
   id: string;

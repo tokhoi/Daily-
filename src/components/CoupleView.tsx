@@ -1,15 +1,24 @@
 import React, { useRef, useState } from 'react';
-import type { CoupleNudge, CoupleProfile, PartnerCheckin } from '../types/habit';
+import { createMockPartnerWeeklyPercents } from '../data/coupleSeed';
+import type {
+  CoupleChatMessage,
+  CoupleNudge,
+  CoupleProfile,
+  PartnerCheckin,
+} from '../types/habit';
 import { GIcon, TaskGlyph } from './GIcon';
 
 interface CoupleViewProps {
   myPercent: number;
+  myWeeklyPercents: { label: string; percent: number }[];
   profile: CoupleProfile;
   partnerCheckins: PartnerCheckin[];
   nudges: CoupleNudge[];
+  chatMessages: CoupleChatMessage[];
   onUpdateProfile: (next: CoupleProfile) => void;
   onReactCheckin: (id: string, reaction: 'heart' | 'clap' | 'fire') => void;
   onSendNudge: (message: string) => void;
+  onSendChat: (text: string) => void;
 }
 
 const QUICK_NUDGES = [
@@ -18,14 +27,24 @@ const QUICK_NUDGES = [
   'Nhớ ngủ sớm nha 🌙',
 ];
 
+const QUICK_COUPLE_CHAT = [
+  'Cố lên nha 💪',
+  'Xong task rồi nè!',
+  'Tối nay đi ăn nhé 🍜',
+  'Nhớ cậu 💕',
+];
+
 export const CoupleView: React.FC<CoupleViewProps> = ({
   myPercent,
+  myWeeklyPercents,
   profile,
   partnerCheckins,
   nudges,
+  chatMessages,
   onUpdateProfile,
   onReactCheckin,
   onSendNudge,
+  onSendChat,
 }) => {
   const [feedMode, setFeedMode] = useState<'swipe' | 'locket'>('swipe');
   const [cardIndex, setCardIndex] = useState(0);
@@ -34,13 +53,32 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
   const [flyDir, setFlyDir] = useState<'left' | 'right' | null>(null);
   const [heartBurst, setHeartBurst] = useState(false);
   const [customNudge, setCustomNudge] = useState('');
+  const [chatInput, setChatInput] = useState('');
   const [showPairEdit, setShowPairEdit] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState(profile.partnerCode);
 
   const startXRef = useRef(0);
 
-  const partnerPercent = 86;
+  const partnerWeekly = createMockPartnerWeeklyPercents();
+  const partnerPercent = partnerWeekly[partnerWeekly.length - 1] ?? 86;
   const coupleStreak = 5;
+
+  const myWeekAvg =
+    myWeeklyPercents.length > 0
+      ? Math.round(
+          myWeeklyPercents.reduce((s, d) => s + d.percent, 0) / myWeeklyPercents.length
+        )
+      : myPercent;
+  const partnerWeekAvg = Math.round(
+    partnerWeekly.reduce((s, v) => s + v, 0) / partnerWeekly.length
+  );
+
+  const handleSendCoupleChat = (textToSend?: string) => {
+    const content = (textToSend ?? chatInput).trim();
+    if (!content) return;
+    onSendChat(content);
+    if (!textToSend) setChatInput('');
+  };
 
   const currentCard = partnerCheckins[cardIndex];
 
@@ -395,6 +433,140 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
           ))}
         </div>
       )}
+
+      {/* 2-PERSON COMPARISON STATS */}
+      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
+            Thống kê so sánh 2 người (7 ngày)
+          </h3>
+          <span className="rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-500">
+            {myWeekAvg >= partnerWeekAvg ? `${profile.myName} đang dẫn` : `${profile.partnerName} đang dẫn`}
+          </span>
+        </div>
+
+        {/* Summary KPI Comparison */}
+        <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-2xl bg-pink-50/70 p-2.5">
+            <p className="text-[10px] font-bold text-slate-400">TB Tuần ({profile.myName})</p>
+            <p className="mt-0.5 text-base font-extrabold text-pink-500">{myWeekAvg}%</p>
+          </div>
+          <div className="rounded-2xl bg-pink-50/70 p-2.5">
+            <p className="text-[10px] font-bold text-slate-400">Chênh lệch</p>
+            <p className="mt-0.5 text-base font-extrabold text-blue-950">
+              {myWeekAvg >= partnerWeekAvg ? `+${myWeekAvg - partnerWeekAvg}%` : `${myWeekAvg - partnerWeekAvg}%`}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-blue-50/60 p-2.5">
+            <p className="text-[10px] font-bold text-slate-400">TB Tuần ({profile.partnerName})</p>
+            <p className="mt-0.5 text-base font-extrabold text-blue-900">{partnerWeekAvg}%</p>
+          </div>
+        </div>
+
+        {/* 7-Day Dual Bar Chart */}
+        <div className="flex h-28 items-end justify-between gap-2 px-1">
+          {myWeeklyPercents.map((day, idx) => {
+            const pVal = partnerWeekly[idx] ?? 80;
+            return (
+              <div key={day.label} className="flex flex-1 flex-col items-center gap-1.5">
+                <div className="flex h-20 w-full items-end justify-center gap-1">
+                  <div
+                    className="w-2.5 rounded-t-full bg-pink-400 transition-all duration-500"
+                    style={{ height: `${Math.max(8, day.percent)}%` }}
+                    title={`${profile.myName}: ${day.percent}%`}
+                  />
+                  <div
+                    className="w-2.5 rounded-t-full bg-blue-900 transition-all duration-500"
+                    style={{ height: `${Math.max(8, pVal)}%` }}
+                    title={`${profile.partnerName}: ${pVal}%`}
+                  />
+                </div>
+                <span className="text-[10px] font-bold text-slate-400">{day.label}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-3 flex justify-center gap-4 text-[11px] font-bold">
+          <span className="flex items-center gap-1.5 text-blue-950">
+            <span className="h-2.5 w-2.5 rounded-full bg-pink-400" />
+            {profile.myName}
+          </span>
+          <span className="flex items-center gap-1.5 text-blue-950">
+            <span className="h-2.5 w-2.5 rounded-full bg-blue-900" />
+            {profile.partnerName}
+          </span>
+        </div>
+      </div>
+
+      {/* COUPLE CHAT BOX */}
+      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
+            Khung Chat Cặp Đôi ({profile.partnerName})
+          </h3>
+          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-600">
+            Đang kết nối
+          </span>
+        </div>
+
+        <div className="mb-3 max-h-52 space-y-2 overflow-y-auto pr-1">
+          {chatMessages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex flex-col ${
+                msg.sender === 'me' ? 'items-end' : 'items-start'
+              }`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed font-medium ${
+                  msg.sender === 'me'
+                    ? 'rounded-br-sm bg-blue-900 text-white'
+                    : 'rounded-bl-sm bg-pink-50 text-blue-950'
+                }`}
+              >
+                {msg.text}
+              </div>
+              <span className="mt-0.5 px-1 text-[10px] text-slate-400">
+                {msg.sender === 'me' ? profile.myName : profile.partnerName} • {msg.createdAt}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-2.5 flex flex-wrap gap-1.5">
+          {QUICK_COUPLE_CHAT.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => handleSendCoupleChat(q)}
+              className="ios-press rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-semibold text-blue-900"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleSendCoupleChat();
+            }}
+            placeholder={`Nhắn cho ${profile.partnerName}...`}
+            className="flex-1 rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs font-medium text-blue-950 outline-hidden focus:border-pink-300"
+          />
+          <button
+            type="button"
+            onClick={() => handleSendCoupleChat()}
+            className="ios-press rounded-2xl bg-blue-900 px-4 text-xs font-bold text-white"
+          >
+            Gửi
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

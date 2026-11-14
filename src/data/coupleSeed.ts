@@ -1,4 +1,9 @@
-import type { CoupleNudge, CoupleProfile, PartnerCheckin } from '../types/habit';
+import type {
+  CoupleChatMessage,
+  CoupleNudge,
+  CoupleProfile,
+  PartnerCheckin,
+} from '../types/habit';
 
 /**
  * Generates clean SVG data-URI photo cards so Tinder-swipe & Locket feed
@@ -81,4 +86,31 @@ export function createMockNudges(): CoupleNudge[] {
       createdAt: '10:15',
     },
   ];
+}
+
+export function createMockCoupleChat(): CoupleChatMessage[] {
+  return [
+    {
+      id: 'chat-1',
+      sender: 'partner',
+      text: 'Sáng nay cậu dậy sớm chưa nè? Mình uống hết 1L nước rồi đó 💧',
+      createdAt: '09:22',
+    },
+    {
+      id: 'chat-2',
+      sender: 'me',
+      text: 'Mình đang cố hoàn thành hết task hôm nay để giữ streak với cậu nè!',
+      createdAt: '09:25',
+    },
+    {
+      id: 'chat-3',
+      sender: 'partner',
+      text: 'Cố lên nha, tối nay cùng so % xem ai cao hơn 💖',
+      createdAt: '10:16',
+    },
+  ];
+}
+
+export function createMockPartnerWeeklyPercents(): number[] {
+  return [78, 92, 65, 88, 100, 82, 86];
 }

@@ -321,9 +321,9 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       ear.rotation.z = side * -0.32;
       const outer = new THREE.Mesh(new THREE.SphereGeometry(0.29, 24, 24), furMat);
       outer.scale.set(1, 0.95, 0.68);
-      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 20), bellyMat);
-      inner.scale.set(1, 0.95, 0.45);
-      inner.position.set(0, -0.01, 0.12);
+      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 20), bellyMat);
+      inner.scale.set(1, 0.95, 0.42);
+      inner.position.set(0, -0.01, 0.145);
       ear.add(outer, inner);
       return ear;
     };
@@ -373,13 +373,13 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const rightEye = makeEye(1);
     headGroup.add(leftEye, rightEye);
 
-    // Cute Eyebrows
-    const leftBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.02, 0.09, 6, 10), accentFurMat);
-    leftBrow.rotation.z = Math.PI / 2 - 0.15;
-    leftBrow.position.set(-0.32, 0.25, 0.76);
-    const rightBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.02, 0.09, 6, 10), accentFurMat);
-    rightBrow.rotation.z = Math.PI / 2 + 0.15;
-    rightBrow.position.set(0.32, 0.25, 0.76);
+    // Cute Happy Eyebrows
+    const leftBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.085, 6, 10), accentFurMat);
+    leftBrow.rotation.z = Math.PI / 2 + 0.14;
+    leftBrow.position.set(-0.32, 0.25, 0.77);
+    const rightBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.085, 6, 10), accentFurMat);
+    rightBrow.rotation.z = Math.PI / 2 - 0.14;
+    rightBrow.position.set(0.32, 0.25, 0.77);
     headGroup.add(leftBrow, rightBrow);
 
     // Soft Cheeks
@@ -391,24 +391,21 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rightCheek.position.set(0.52, -0.1, 0.67);
     headGroup.add(leftCheek, rightCheek);
 
-    // Smooth Rounded Chubby Arms + Paw Pads (no flat caps or sharp edges)
-    const armGeo = new THREE.CapsuleGeometry(0.185, 0.36, 16, 24);
+    // Smooth Rounded Chubby Plush Arms (angled naturally outward & forward)
+    const armGeo = new THREE.CapsuleGeometry(0.175, 0.24, 16, 24);
     const makeArm = (side: -1 | 1) => {
       const armPivot = new THREE.Group();
-      armPivot.position.set(side * 0.72, -0.1, 0.14);
+      armPivot.position.set(side * 0.7, -0.14, 0.12);
 
       const armHolder = new THREE.Group();
-      // Tilt outward (-side on Z in Three.js right-hand rule) & slightly forward
-      armHolder.rotation.z = side * -0.42;
-      armHolder.rotation.x = -0.22;
-      armHolder.position.set(side * 0.08, -0.22, 0.05);
+      // +side on Z tilts bottom (-Y) outward away from torso
+      armHolder.rotation.z = side * 0.42;
+      armHolder.rotation.x = -0.25;
+      armHolder.position.set(side * 0.06, -0.16, 0.06);
 
       const mesh = new THREE.Mesh(armGeo, furMat);
-      const pawPad = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 14), bellyMat);
-      pawPad.scale.set(0.9, 0.9, 0.4);
-      pawPad.position.set(0, -0.22, 0.14);
-
-      armHolder.add(mesh, pawPad);
+      mesh.scale.set(1.0, 1.0, 0.92);
+      armHolder.add(mesh);
       armPivot.add(armHolder);
       return armPivot;
     };
@@ -523,10 +520,12 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       } else if (currentAnim === 'clap') {
         const bounce = Math.abs(Math.sin(t * 6.5));
         bear.position.y = bounce * 0.18;
-        leftArm.rotation.z = 0.95;
-        leftArm.rotation.y = Math.sin(t * 13) * 0.55 + 0.45;
-        rightArm.rotation.z = -0.95;
-        rightArm.rotation.y = -Math.sin(t * 13) * 0.55 - 0.45;
+        leftArm.rotation.x = -0.75;
+        leftArm.rotation.z = -0.65;
+        leftArm.rotation.y = Math.sin(t * 13) * 0.45 - 0.35;
+        rightArm.rotation.x = -0.75;
+        rightArm.rotation.z = 0.65;
+        rightArm.rotation.y = -Math.sin(t * 13) * 0.45 + 0.35;
         headGroup.rotation.z = Math.sin(t * 6.5) * 0.08;
         leftBrow.position.y = 0.28;
         rightBrow.position.y = 0.28;
@@ -537,22 +536,23 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         });
       } else if (currentAnim === 'wave') {
         bear.position.y = Math.sin(t * 2.4) * 0.05;
-        rightArm.rotation.z = 2.15 + Math.sin(t * 8) * 0.32;
+        rightArm.rotation.z = 1.85 + Math.sin(t * 7.5) * 0.28;
+        rightArm.rotation.x = -0.25;
         headGroup.rotation.z = -0.1;
         leftBrow.position.y = 0.27;
         rightBrow.position.y = 0.27;
       } else if (currentAnim === 'poke') {
         bear.position.y = Math.abs(Math.sin(t * 8.5)) * 0.11;
         headGroup.rotation.x = Math.sin(t * 8.5) * 0.14;
-        leftArm.rotation.x = -1.05;
-        rightArm.rotation.x = -1.05;
+        leftArm.rotation.x = -0.95;
+        rightArm.rotation.x = -0.95;
         leftFoot.position.y = -1.36 + Math.max(0, Math.sin(t * 8.5)) * 0.08;
         rightFoot.position.y = -1.36 + Math.max(0, -Math.sin(t * 8.5)) * 0.08;
       } else if (currentAnim === 'dance') {
         bear.position.y = Math.abs(Math.sin(t * 7)) * 0.22;
         bear.rotation.z = Math.sin(t * 3.5) * 0.15;
-        leftArm.rotation.z = Math.sin(t * 7) * 0.8 + 0.65;
-        rightArm.rotation.z = Math.sin(t * 7) * 0.8 - 0.65;
+        leftArm.rotation.z = Math.sin(t * 7) * 0.6 - 0.85;
+        rightArm.rotation.z = Math.sin(t * 7) * 0.6 + 0.85;
         leftFoot.position.y = -1.36 + Math.max(0, Math.sin(t * 7)) * 0.12;
         rightFoot.position.y = -1.36 + Math.max(0, -Math.sin(t * 7)) * 0.12;
         if (!isDragging) targetRotY += 0.022;
