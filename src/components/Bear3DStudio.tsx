@@ -2,7 +2,18 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { GIcon } from './GIcon';
 
-export type Bear3DAnim = 'idle' | 'clap' | 'wave' | 'poke' | 'dance' | 'sleep';
+export type Bear3DAnim =
+  | 'idle'
+  | 'clap'
+  | 'wave'
+  | 'poke'
+  | 'dance'
+  | 'sleep'
+  | 'flex'
+  | 'cry'
+  | 'heart_pose'
+  | 'dab';
+
 export type Bear3DVariant = 'pink' | 'blue';
 
 interface Bear3DCanvasProps {
@@ -12,10 +23,6 @@ interface Bear3DCanvasProps {
   onTapBear?: () => void;
 }
 
-/**
- * Generates a subtle procedural plush/velvet bump & color grain texture
- * so the 3D bear feels tactile like a game character / Jellycat plush.
- */
 function createPlushTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -39,9 +46,6 @@ function createPlushTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-/**
- * Generates a soft radial gradient texture for ground contact shadow & blush.
- */
 function createRadialGradientTexture(
   innerColor: string,
   outerColor: string
@@ -60,10 +64,6 @@ function createRadialGradientTexture(
   return new THREE.CanvasTexture(canvas);
 }
 
-/**
- * Creates a sculpted chubby head geometry by softly deforming a high-res sphere
- * so cheeks are fuller and forehead tapers slightly like a real character model.
- */
 function createChubbyHeadGeometry(): THREE.BufferGeometry {
   const geo = new THREE.SphereGeometry(0.86, 48, 40);
   const pos = geo.attributes.position;
@@ -72,27 +72,20 @@ function createChubbyHeadGeometry(): THREE.BufferGeometry {
     let y = pos.getY(i);
     let z = pos.getZ(i);
 
-    // Fuller lower cheeks, slightly narrower top
     const cheekFactor = y < 0 ? 1 + Math.abs(y) * 0.16 : 1 - y * 0.08;
     x *= cheekFactor * 1.07;
     z *= cheekFactor * 0.96;
     y *= 0.94;
 
-    // Gentle forward snout fullness
     if (z > 0 && y < 0.15) {
       z += 0.07 * Math.max(0, 1 - Math.abs(x) * 1.4);
     }
-
     pos.setXYZ(i, x, y, z);
   }
   geo.computeVertexNormals();
   return geo;
 }
 
-/**
- * Creates a seamless pear-shaped plush torso using LatheGeometry
- * so belly, hips, and neck flow smoothly as one sculpted piece.
- */
 function createTorsoGeometry(): THREE.BufferGeometry {
   const pts = [
     new THREE.Vector2(0.0, -0.82),
@@ -105,17 +98,12 @@ function createTorsoGeometry(): THREE.BufferGeometry {
     new THREE.Vector2(0.0, 0.74),
   ];
   const spline = new THREE.SplineCurve(pts);
-  const smoothPts = spline.getPoints(36);
-  const geo = new THREE.LatheGeometry(smoothPts, 44);
-  // Slightly flatten front-to-back for cute chibi silhouette
+  const geo = new THREE.LatheGeometry(spline.getPoints(36), 44);
   geo.scale(1.02, 1.0, 0.9);
   geo.computeVertexNormals();
   return geo;
 }
 
-/**
- * Creates a real extruded 3D heart geometry for floating celebration particles.
- */
 function createHeartGeometry(): THREE.BufferGeometry {
   const shape = new THREE.Shape();
   shape.moveTo(0, 0.25);
@@ -142,7 +130,7 @@ function createHeartGeometry(): THREE.BufferGeometry {
 export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
   anim,
   variant,
-  height = 300,
+  height = 290,
   onTapBear,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -171,7 +159,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 0.35, 5.4);
+    camera.position.set(0, 0.35, 5.5);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(width, height);
@@ -181,9 +169,8 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     container.innerHTML = '';
     container.appendChild(renderer.domElement);
 
-    // Game-engine 3-point + hemisphere studio lighting
-    const hemiLight = new THREE.HemisphereLight(0xfff5fa, 0xc7d2fe, 1.15);
-    scene.add(hemiLight);
+    // 3-Point Studio + Hemisphere Lighting
+    scene.add(new THREE.HemisphereLight(0xfff5fa, 0xc7d2fe, 1.15));
 
     const keyLight = new THREE.DirectionalLight(0xffffff, 1.55);
     keyLight.position.set(3.2, 5.5, 4.5);
@@ -197,19 +184,16 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rimLight.position.set(-2.5, 3.5, -4.0);
     scene.add(rimLight);
 
-    // Procedural textures
     const plushTex = createPlushTexture();
     const shadowTex = createRadialGradientTexture(
       'rgba(30, 58, 138, 0.22)',
       'rgba(30, 58, 138, 0)'
     );
 
-    // Velvety MeshPhysicalMaterials (Jellycat / Duolingo plush feel)
     const furMat = new THREE.MeshPhysicalMaterial({
       color: variant === 'pink' ? 0xf9a8d4 : 0x7dd3fc,
       map: plushTex,
       roughness: 0.78,
-      metalness: 0.0,
       sheen: 0.9,
       sheenRoughness: 0.65,
       sheenColor: new THREE.Color(0xffffff),
@@ -219,7 +203,6 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       color: variant === 'pink' ? 0xf472b6 : 0x3b82f6,
       map: plushTex,
       roughness: 0.72,
-      metalness: 0.0,
       sheen: 0.8,
       sheenRoughness: 0.6,
       sheenColor: new THREE.Color(0xfff1f6),
@@ -244,7 +227,6 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const eyeMat = new THREE.MeshPhysicalMaterial({
       color: 0x172554,
       roughness: 0.08,
-      metalness: 0.05,
       clearcoat: 1.0,
       clearcoatRoughness: 0.06,
     });
@@ -254,7 +236,14 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       color: 0xfb7185,
       roughness: 0.75,
       transparent: true,
-      opacity: 0.55,
+      opacity: 0.58,
+    });
+    const tearMat = new THREE.MeshPhysicalMaterial({
+      color: 0x60a5fa,
+      roughness: 0.1,
+      clearcoat: 1,
+      transparent: true,
+      opacity: 0.85,
     });
     const heartMat = new THREE.MeshPhysicalMaterial({
       color: 0xf43f5e,
@@ -272,49 +261,47 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       })
     );
     shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.set(0, -1.56, 0);
+    shadowMesh.position.set(0, -1.58, 0);
     scene.add(shadowMesh);
 
-    // Main Bear Root (for bounce & squash-stretch)
+    // Root & Torso Pivot
     const bear = new THREE.Group();
     scene.add(bear);
 
-    // Seamless Sculpted Torso
+    const torsoGroup = new THREE.Group();
+    bear.add(torsoGroup);
+
     const torso = new THREE.Mesh(createTorsoGeometry(), furMat);
     torso.position.set(0, -0.58, 0);
-    bear.add(torso);
+    torsoGroup.add(torso);
 
-    // Soft Cream Belly Patch (flush with torso curve)
     const belly = new THREE.Mesh(new THREE.SphereGeometry(0.58, 32, 32), bellyMat);
     belly.scale.set(0.95, 1.06, 0.52);
     belly.position.set(0, -0.68, 0.5);
-    bear.add(belly);
+    torsoGroup.add(belly);
 
-    // Cute Round Tail at the back
     const tail = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 20), bellyMat);
     tail.position.set(0, -1.06, -0.74);
-    bear.add(tail);
+    torsoGroup.add(tail);
 
-    // Soft Neck Collar / Scarf Ring (makes head-to-body 100% cohesive like a game model)
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.13, 18, 36), scarfMat);
     collar.rotation.x = Math.PI / 2 + 0.08;
     collar.position.set(0, 0.08, 0.02);
-    bear.add(collar);
+    torsoGroup.add(collar);
 
     const collarKnot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), scarfMat);
     collarKnot.scale.set(1.2, 0.9, 0.8);
     collarKnot.position.set(0.24, 0.02, 0.45);
-    bear.add(collarKnot);
+    torsoGroup.add(collarKnot);
 
-    // Head Group
+    // Head Group + Articulated Ears + Expressive Face
     const headGroup = new THREE.Group();
     headGroup.position.set(0, 0.72, 0.02);
-    bear.add(headGroup);
+    torsoGroup.add(headGroup);
 
     const head = new THREE.Mesh(createChubbyHeadGeometry(), furMat);
     headGroup.add(head);
 
-    // Sculpted Ears (tucked seamlessly into head crown)
     const makeEar = (side: -1 | 1) => {
       const ear = new THREE.Group();
       ear.position.set(side * 0.64, 0.62, -0.06);
@@ -327,21 +314,20 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       ear.add(outer, inner);
       return ear;
     };
-    headGroup.add(makeEar(-1), makeEar(1));
+    const leftEar = makeEar(-1);
+    const rightEar = makeEar(1);
+    headGroup.add(leftEar, rightEar);
 
-    // Snout / Muzzle
     const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.32, 28, 24), bellyMat);
     muzzle.scale.set(1.2, 0.84, 0.68);
     muzzle.position.set(0, -0.18, 0.72);
     headGroup.add(muzzle);
 
-    // Rounded Cute Nose
     const nose = new THREE.Mesh(new THREE.SphereGeometry(0.095, 20, 16), eyeMat);
     nose.scale.set(1.25, 0.85, 0.75);
     nose.position.set(0, -0.08, 0.92);
     headGroup.add(nose);
 
-    // ":3" Smile Mouth using TubeGeometry
     const smileCurveLeft = new THREE.CatmullRomCurve3([
       new THREE.Vector3(-0.14, -0.2, 0.88),
       new THREE.Vector3(-0.07, -0.25, 0.91),
@@ -356,7 +342,12 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const smileRight = new THREE.Mesh(new THREE.TubeGeometry(smileCurveRight, 14, 0.018, 8, false), eyeMat);
     headGroup.add(smileLeft, smileRight);
 
-    // Expressive Glossy Game Eyes with Double Catchlights
+    const mouthOpen = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 14), accentFurMat);
+    mouthOpen.scale.set(1.0, 1.25, 0.5);
+    mouthOpen.position.set(0, -0.24, 0.9);
+    mouthOpen.visible = false;
+    headGroup.add(mouthOpen);
+
     const makeEye = (side: -1 | 1) => {
       const eyeGroup = new THREE.Group();
       eyeGroup.position.set(side * 0.31, 0.07, 0.76);
@@ -373,7 +364,16 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const rightEye = makeEye(1);
     headGroup.add(leftEye, rightEye);
 
-    // Cute Happy Eyebrows
+    // Tear streams (visible in 'cry' meme mode)
+    const tearGroup = new THREE.Group();
+    const leftTear = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.16, 6, 10), tearMat);
+    leftTear.position.set(-0.32, -0.08, 0.77);
+    const rightTear = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.16, 6, 10), tearMat);
+    rightTear.position.set(0.32, -0.08, 0.77);
+    tearGroup.add(leftTear, rightTear);
+    tearGroup.visible = false;
+    headGroup.add(tearGroup);
+
     const leftBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.085, 6, 10), accentFurMat);
     leftBrow.rotation.z = Math.PI / 2 + 0.14;
     leftBrow.position.set(-0.32, 0.25, 0.77);
@@ -382,7 +382,6 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rightBrow.position.set(0.32, 0.25, 0.77);
     headGroup.add(leftBrow, rightBrow);
 
-    // Soft Cheeks
     const leftCheek = new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 18), cheekMat);
     leftCheek.scale.set(1.25, 0.72, 0.32);
     leftCheek.position.set(-0.52, -0.1, 0.67);
@@ -391,44 +390,49 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rightCheek.position.set(0.52, -0.1, 0.67);
     headGroup.add(leftCheek, rightCheek);
 
-    // Smooth Rounded Chubby Plush Arms (angled naturally outward & forward)
-    const armGeo = new THREE.CapsuleGeometry(0.175, 0.24, 16, 24);
-    const makeArm = (side: -1 | 1) => {
-      const armPivot = new THREE.Group();
-      armPivot.position.set(side * 0.7, -0.14, 0.12);
+    // 2-Segment Articulated Arms (Shoulder -> Upper Arm -> Elbow -> Forearm + Paw)
+    const upperArmGeo = new THREE.CapsuleGeometry(0.155, 0.16, 14, 20);
+    const forearmGeo = new THREE.CapsuleGeometry(0.145, 0.16, 14, 20);
 
-      const armHolder = new THREE.Group();
-      // +side on Z tilts bottom (-Y) outward away from torso
-      armHolder.rotation.z = side * 0.42;
-      armHolder.rotation.x = -0.25;
-      armHolder.position.set(side * 0.06, -0.16, 0.06);
+    const makeArticulatedArm = (side: -1 | 1) => {
+      const shoulder = new THREE.Group();
+      shoulder.position.set(side * 0.72, -0.14, 0.12);
 
-      const mesh = new THREE.Mesh(armGeo, furMat);
-      mesh.scale.set(1.0, 1.0, 0.92);
-      armHolder.add(mesh);
-      armPivot.add(armHolder);
-      return armPivot;
+      const upperMesh = new THREE.Mesh(upperArmGeo, furMat);
+      upperMesh.position.set(side * 0.04, -0.12, 0.02);
+      upperMesh.rotation.z = side * 0.28;
+      shoulder.add(upperMesh);
+
+      const elbow = new THREE.Group();
+      elbow.position.set(side * 0.11, -0.26, 0.04);
+      const forearmMesh = new THREE.Mesh(forearmGeo, accentFurMat);
+      forearmMesh.position.set(0, -0.12, 0.04);
+      elbow.add(forearmMesh);
+
+      shoulder.add(elbow);
+      return { shoulder, elbow };
     };
 
-    const leftArm = makeArm(-1);
-    const rightArm = makeArm(1);
-    bear.add(leftArm, rightArm);
+    const leftArm = makeArticulatedArm(-1);
+    const rightArm = makeArticulatedArm(1);
+    torsoGroup.add(leftArm.shoulder, rightArm.shoulder);
 
-    // Sculpted Chubby Legs + Feet with Pink Paw Pads
-    const makeFoot = (side: -1 | 1) => {
-      const foot = new THREE.Group();
-      foot.position.set(side * 0.44, -1.36, 0.18);
+    // Articulated Legs + Feet with Paw Pads
+    const makeArticulatedLeg = (side: -1 | 1) => {
+      const hip = new THREE.Group();
+      hip.position.set(side * 0.42, -1.24, 0.08);
       const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 20), accentFurMat);
       shoe.scale.set(0.95, 0.72, 1.25);
+      shoe.position.set(0, -0.12, 0.1);
       const pad = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 16), bellyMat);
       pad.scale.set(0.9, 0.85, 0.3);
-      pad.position.set(0, -0.02, 0.31);
-      foot.add(shoe, pad);
-      return foot;
+      pad.position.set(0, -0.14, 0.41);
+      hip.add(shoe, pad);
+      return hip;
     };
-    const leftFoot = makeFoot(-1);
-    const rightFoot = makeFoot(1);
-    bear.add(leftFoot, rightFoot);
+    const leftLeg = makeArticulatedLeg(-1);
+    const rightLeg = makeArticulatedLeg(1);
+    bear.add(leftLeg, rightLeg);
 
     // Real 3D Heart Particles
     const heartGeo = createHeartGeometry();
@@ -440,7 +444,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     }
     scene.add(heartGroup);
 
-    // Pointer Drag to Rotate 360° + Tap to Squash/Bounce
+    // Pointer Drag 360° + Tap to Squash
     let isDragging = false;
     let movedDist = 0;
     let prevX = 0;
@@ -480,7 +484,6 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       const currentAnim = animRef.current;
       const currentVar = variantRef.current;
 
-      // Smoothly transition variant colors
       const targetFur = currentVar === 'pink' ? 0xf9a8d4 : 0x7dd3fc;
       const targetAccent = currentVar === 'pink' ? 0xf472b6 : 0x3b82f6;
       const targetScarf = currentVar === 'pink' ? 0x1e3a8a : 0xf472b6;
@@ -488,47 +491,57 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       accentFurMat.color.lerp(new THREE.Color(targetAccent), 0.12);
       scarfMat.color.lerp(new THREE.Color(targetScarf), 0.12);
 
-      // Squash-and-stretch decay on tap
       squashRef.current *= 0.86;
       const sq = Math.sin(squashRef.current * Math.PI) * 0.14;
 
-      // Reset base transforms
+      // Reset all joints
       bear.position.y = 0;
       bear.rotation.z = 0;
       bear.scale.set(1 + sq, 1 - sq * 0.85, 1 + sq);
+      torsoGroup.rotation.set(0, 0, 0);
       headGroup.rotation.set(0, 0, 0);
-      leftArm.rotation.set(0, 0, 0);
-      rightArm.rotation.set(0, 0, 0);
-      leftFoot.position.y = -1.36;
-      rightFoot.position.y = -1.36;
-      leftEye.scale.y = 1;
-      rightEye.scale.y = 1;
+      leftEar.rotation.set(0, 0, 0.32);
+      rightEar.rotation.set(0, 0, -0.32);
+
+      leftArm.shoulder.rotation.set(0, 0, 0);
+      leftArm.elbow.rotation.set(0, 0, 0);
+      rightArm.shoulder.rotation.set(0, 0, 0);
+      rightArm.elbow.rotation.set(0, 0, 0);
+
+      leftLeg.rotation.set(0, 0, 0);
+      rightLeg.rotation.set(0, 0, 0);
+
+      leftEye.scale.set(1, 1, 1);
+      rightEye.scale.set(1, 1, 1);
       leftBrow.position.y = 0.25;
       rightBrow.position.y = 0.25;
+      leftBrow.rotation.z = Math.PI / 2 + 0.14;
+      rightBrow.rotation.z = Math.PI / 2 - 0.14;
+      mouthOpen.visible = false;
+      tearGroup.visible = false;
       heartGroup.visible = false;
 
       if (currentAnim === 'idle') {
         bear.position.y = Math.sin(t * 2.1) * 0.05;
         headGroup.rotation.z = Math.sin(t * 1.3) * 0.05;
-        leftArm.rotation.z = Math.sin(t * 2.1) * 0.06;
-        rightArm.rotation.z = -Math.sin(t * 2.1) * 0.06;
-        // Natural blink
+        leftEar.rotation.z = 0.32 + Math.sin(t * 2.5) * 0.05;
+        rightEar.rotation.z = -0.32 - Math.sin(t * 2.5) * 0.05;
+        leftArm.shoulder.rotation.z = -0.08 + Math.sin(t * 2.1) * 0.05;
+        rightArm.shoulder.rotation.z = 0.08 - Math.sin(t * 2.1) * 0.05;
         if (Math.sin(t * 1.5) > 0.96) {
           leftEye.scale.y = 0.12;
           rightEye.scale.y = 0.12;
         }
       } else if (currentAnim === 'clap') {
-        const bounce = Math.abs(Math.sin(t * 6.5));
-        bear.position.y = bounce * 0.18;
-        leftArm.rotation.x = -0.75;
-        leftArm.rotation.z = -0.65;
-        leftArm.rotation.y = Math.sin(t * 13) * 0.45 - 0.35;
-        rightArm.rotation.x = -0.75;
-        rightArm.rotation.z = 0.65;
-        rightArm.rotation.y = -Math.sin(t * 13) * 0.45 + 0.35;
+        bear.position.y = Math.abs(Math.sin(t * 6.5)) * 0.18;
+        leftArm.shoulder.rotation.set(-0.85, 0.25, -0.55);
+        leftArm.elbow.rotation.set(-0.5, 0.55 + Math.sin(t * 13) * 0.45, 0);
+        rightArm.shoulder.rotation.set(-0.85, -0.25, 0.55);
+        rightArm.elbow.rotation.set(-0.5, -0.55 - Math.sin(t * 13) * 0.45, 0);
         headGroup.rotation.z = Math.sin(t * 6.5) * 0.08;
         leftBrow.position.y = 0.28;
         rightBrow.position.y = 0.28;
+        mouthOpen.visible = true;
         heartGroup.visible = true;
         heartGroup.children.forEach((c, idx) => {
           c.position.y = 1.55 + ((t * 0.85 + idx * 0.35) % 1) * 0.85;
@@ -536,25 +549,28 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         });
       } else if (currentAnim === 'wave') {
         bear.position.y = Math.sin(t * 2.4) * 0.05;
-        rightArm.rotation.z = 1.85 + Math.sin(t * 7.5) * 0.28;
-        rightArm.rotation.x = -0.25;
-        headGroup.rotation.z = -0.1;
-        leftBrow.position.y = 0.27;
-        rightBrow.position.y = 0.27;
+        rightArm.shoulder.rotation.set(-0.2, 0, 2.0);
+        rightArm.elbow.rotation.z = Math.sin(t * 8) * 0.42;
+        headGroup.rotation.z = -0.12;
+        rightEye.scale.y = 0.2; // cute wink!
       } else if (currentAnim === 'poke') {
         bear.position.y = Math.abs(Math.sin(t * 8.5)) * 0.11;
         headGroup.rotation.x = Math.sin(t * 8.5) * 0.14;
-        leftArm.rotation.x = -0.95;
-        rightArm.rotation.x = -0.95;
-        leftFoot.position.y = -1.36 + Math.max(0, Math.sin(t * 8.5)) * 0.08;
-        rightFoot.position.y = -1.36 + Math.max(0, -Math.sin(t * 8.5)) * 0.08;
+        leftArm.shoulder.rotation.x = -0.95;
+        leftArm.elbow.rotation.x = -0.45;
+        rightArm.shoulder.rotation.x = -0.95;
+        rightArm.elbow.rotation.x = -0.45;
+        leftLeg.rotation.x = Math.sin(t * 8.5) * 0.25;
+        rightLeg.rotation.x = -Math.sin(t * 8.5) * 0.25;
       } else if (currentAnim === 'dance') {
         bear.position.y = Math.abs(Math.sin(t * 7)) * 0.22;
-        bear.rotation.z = Math.sin(t * 3.5) * 0.15;
-        leftArm.rotation.z = Math.sin(t * 7) * 0.6 - 0.85;
-        rightArm.rotation.z = Math.sin(t * 7) * 0.6 + 0.85;
-        leftFoot.position.y = -1.36 + Math.max(0, Math.sin(t * 7)) * 0.12;
-        rightFoot.position.y = -1.36 + Math.max(0, -Math.sin(t * 7)) * 0.12;
+        torsoGroup.rotation.z = Math.sin(t * 3.5) * 0.14;
+        leftArm.shoulder.rotation.z = -1.2 + Math.sin(t * 7) * 0.55;
+        leftArm.elbow.rotation.z = 0.65;
+        rightArm.shoulder.rotation.z = 1.2 + Math.sin(t * 7) * 0.55;
+        rightArm.elbow.rotation.z = -0.65;
+        leftLeg.rotation.x = Math.sin(t * 7) * 0.35;
+        rightLeg.rotation.x = -Math.sin(t * 7) * 0.35;
         if (!isDragging) targetRotY += 0.022;
         heartGroup.visible = true;
         heartGroup.children.forEach((c, idx) => {
@@ -563,13 +579,57 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         });
       } else if (currentAnim === 'sleep') {
         bear.position.y = -0.1 + Math.sin(t * 1.3) * 0.035;
-        headGroup.rotation.x = 0.26;
-        headGroup.rotation.z = 0.2;
+        headGroup.rotation.set(0.28, 0, 0.2);
+        leftEar.rotation.z = 0.55;
+        rightEar.rotation.z = -0.55;
         leftEye.scale.y = 0.1;
         rightEye.scale.y = 0.1;
+      } else if (currentAnim === 'flex') {
+        bear.position.y = Math.sin(t * 4) * 0.04;
+        torsoGroup.rotation.x = -0.06;
+        leftArm.shoulder.rotation.set(0, 0, -1.45);
+        leftArm.elbow.rotation.set(0, 0, -1.35 + Math.sin(t * 6) * 0.15);
+        rightArm.shoulder.rotation.set(0, 0, 1.45);
+        rightArm.elbow.rotation.set(0, 0, 1.35 - Math.sin(t * 6) * 0.15);
+        leftBrow.rotation.z = Math.PI / 2 - 0.18;
+        rightBrow.rotation.z = Math.PI / 2 + 0.18;
+      } else if (currentAnim === 'cry') {
+        bear.position.y = -0.06 + Math.abs(Math.sin(t * 12)) * 0.03;
+        headGroup.rotation.set(0.18, Math.sin(t * 10) * 0.08, 0);
+        leftEar.rotation.z = 0.65;
+        rightEar.rotation.z = -0.65;
+        leftArm.shoulder.rotation.set(-1.1, 0.2, -0.35);
+        leftArm.elbow.rotation.set(-0.9, 0, 0);
+        rightArm.shoulder.rotation.set(-1.1, -0.2, 0.35);
+        rightArm.elbow.rotation.set(-0.9, 0, 0);
+        leftEye.scale.y = 0.22;
+        rightEye.scale.y = 0.22;
+        tearGroup.visible = true;
+        leftTear.position.y = -0.12 - ((t * 1.6) % 0.18);
+        rightTear.position.y = -0.12 - (((t + 0.5) * 1.6) % 0.18);
+      } else if (currentAnim === 'heart_pose') {
+        bear.position.y = Math.sin(t * 3) * 0.06;
+        leftArm.shoulder.rotation.set(-0.3, 0, -2.15);
+        leftArm.elbow.rotation.set(0, 0, 1.15);
+        rightArm.shoulder.rotation.set(-0.3, 0, 2.15);
+        rightArm.elbow.rotation.set(0, 0, -1.15);
+        headGroup.rotation.z = Math.sin(t * 2) * 0.07;
+        heartGroup.visible = true;
+        heartGroup.children.forEach((c, idx) => {
+          c.position.y = 1.7 + Math.sin(t * 3.5 + idx) * 0.22;
+          c.rotation.y = t * 3;
+        });
+      } else if (currentAnim === 'dab') {
+        torsoGroup.rotation.z = 0.18;
+        headGroup.rotation.set(0.32, -0.35, 0.28);
+        leftArm.shoulder.rotation.set(-0.7, 0.4, -1.2);
+        leftArm.elbow.rotation.set(-0.4, 0.9, 0);
+        rightArm.shoulder.rotation.set(-0.2, 0, 2.15);
+        rightArm.elbow.rotation.set(0, 0, 0.1);
+        leftEye.scale.y = 0.2;
+        rightEye.scale.y = 0.2;
       }
 
-      // Ground shadow reacts smoothly to bear's height
       const shadowScale = Math.max(0.75, 1 - bear.position.y * 0.45);
       shadowMesh.scale.set(shadowScale, shadowScale, 1);
 
@@ -597,13 +657,22 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
   );
 };
 
-const ANIM_PRESETS: { id: Bear3DAnim; label: string; icon: string }[] = [
-  { id: 'idle', label: 'Thở nhẹ', icon: 'pets' },
-  { id: 'clap', label: 'Vỗ tay 100%', icon: 'favorite' },
-  { id: 'wave', label: 'Vẫy chào', icon: 'wb_sunny' },
-  { id: 'poke', label: 'Chọc nhắc', icon: 'notifications_active' },
-  { id: 'dance', label: 'Nhảy múa', icon: 'auto_awesome' },
-  { id: 'sleep', label: 'Ngủ khò khò', icon: 'bedtime' },
+const ANIM_PRESETS: {
+  id: Bear3DAnim;
+  label: string;
+  meme: string;
+  icon: string;
+}[] = [
+  { id: 'idle', label: 'Thở nhẹ', meme: 'Chill phết, làm ly trà sữa hông? 🧋', icon: 'pets' },
+  { id: 'clap', label: 'Đỉnh nóc', meme: 'Đỉnh nóc, kịch trần, bay phấp phới! 🔥', icon: 'favorite' },
+  { id: 'wave', label: 'Vẫy chào', meme: 'Hello cưng, nay tick đủ task chưa đó? 👋', icon: 'wb_sunny' },
+  { id: 'poke', label: 'Chọc nhắc', meme: 'Làm task đi má ơi, đừng lười nữa!! 🔔', icon: 'notifications_active' },
+  { id: 'dance', label: 'Quẩy meme', meme: 'Gét gô!! Hết nước chấm luôn 💃✨', icon: 'auto_awesome' },
+  { id: 'sleep', label: 'Oải chưởng', meme: 'Oải cả chưởng... cho gấu ngủ xíu 💤', icon: 'bedtime' },
+  { id: 'flex', label: 'Flex cơ', meme: 'Over hợp luôn! Cơ bắp uy tín chưa 💪', icon: 'fitness_center' },
+  { id: 'cry', label: 'Tụt mood', meme: 'Cứu bé với, deadline dí quá trời 😭', icon: 'rainy' },
+  { id: 'heart_pose', label: 'Bắn tim', meme: 'Mãi keo nha, yêu cậu x1000 🫶💖', icon: 'favorite' },
+  { id: 'dab', label: 'Slay / Dab', meme: 'Slayyyy! Không làm mà đòi có ăn thì... 😎', icon: 'flag' },
 ];
 
 interface BearChatMessage {
@@ -614,47 +683,45 @@ interface BearChatMessage {
 }
 
 const QUICK_CHAT_PROMPTS = [
-  'Chào gấu!',
-  'Hôm nay mình xong 100% rồi',
-  'Nhảy múa đi gấu ơi',
-  'Mình buồn ngủ quá',
-  'Nhắc mình làm task đi',
+  'Đỉnh nóc kịch trần!',
+  'Gét gô quẩy lên',
+  'Oải cả chưởng quá',
+  'Bắn tim đi gấu',
+  'Flex nhẹ cái xem',
+  'Deadline dí quá cứu bé',
 ];
 
 function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
   const lower = text.toLowerCase();
-  if (lower.includes('ngủ') || lower.includes('mệt') || lower.includes('khò')) {
-    return {
-      reply: 'Ngủ ngoan nha, gấu ôm bạn một cái cho đỡ mệt nè 💤',
-      anim: 'sleep',
-    };
+  if (lower.includes('ngủ') || lower.includes('mệt') || lower.includes('oải')) {
+    return { reply: 'Oải cả chưởng thì nghỉ xíu đi bạn hiền, gấu canh giấc cho 💤', anim: 'sleep' };
   }
-  if (lower.includes('nhảy') || lower.includes('múa') || lower.includes('vui') || lower.includes('hát')) {
-    return {
-      reply: 'Quẩy lên nào!! Gấu nhảy cổ vũ bạn hết mình luôn ✨',
-      anim: 'dance',
-    };
+  if (lower.includes('cứu') || lower.includes('deadline') || lower.includes('khóc') || lower.includes('buồn')) {
+    return { reply: 'Á à tụt mood hả 😭 Thở sâu 3 cái rồi gấu cổ vũ bạn làm tiếp nha!', anim: 'cry' };
   }
-  if (lower.includes('100%') || lower.includes('xong') || lower.includes('giỏi') || lower.includes('hoàn thành')) {
-    return {
-      reply: 'Quá đỉnh luôn!! Gấu vỗ tay rào rào khen bạn nè 👏💗',
-      anim: 'clap',
-    };
+  if (lower.includes('tim') || lower.includes('yêu') || lower.includes('keo')) {
+    return { reply: 'Bắn tim chéo chéo!! Mãi keo nha bạn tui 🫶💖', anim: 'heart_pose' };
   }
-  if (lower.includes('nhắc') || lower.includes('chọc') || lower.includes('task') || lower.includes('học')) {
-    return {
-      reply: 'Này bạn ơi! Dậy tick nốt task hôm nay đi nào, đừng lười nhaa 🔔',
-      anim: 'poke',
-    };
+  if (lower.includes('flex') || lower.includes('cơ') || lower.includes('mạnh')) {
+    return { reply: 'Nhìn bắp tay gấu nè, over hợp luôn đúng hông 💪😎', anim: 'flex' };
+  }
+  if (lower.includes('slay') || lower.includes('dab') || lower.includes('ngầu')) {
+    return { reply: 'Slayyy hết nấc! Quả dab này 10 điểm không có nhưng 😎✨', anim: 'dab' };
+  }
+  if (lower.includes('gét gô') || lower.includes('nhảy') || lower.includes('quẩy')) {
+    return { reply: 'Gét gô!! Hết nước chấm luôn bạn ơi 💃🔥', anim: 'dance' };
+  }
+  if (lower.includes('đỉnh') || lower.includes('100%') || lower.includes('xong') || lower.includes('giỏi')) {
+    return { reply: 'Đỉnh nóc, kịch trần, bay phấp phới!! Vỗ tay rào rào 👏💗', anim: 'clap' };
+  }
+  if (lower.includes('nhắc') || lower.includes('chọc') || lower.includes('task')) {
+    return { reply: 'Dậy làm task đi má ơi, lướt điện thoại hoài à 🔔😂', anim: 'poke' };
   }
   if (lower.includes('chào') || lower.includes('hello') || lower.includes('hi')) {
-    return {
-      reply: 'Chào bạn thân yêu! Gấu vẫy tay chúc bạn một ngày siêu năng lượng ☀️',
-      anim: 'wave',
-    };
+    return { reply: 'Hello cưng! Chúc hôm nay năng suất gấp đôi hôm qua nha ☀️', anim: 'wave' };
   }
   return {
-    reply: 'Gấu nghe bạn rồi nè! Nhớ uống đủ nước và giữ streak nhé 🧸💕',
+    reply: 'Nghe uy tín phết! Giữ vững phong độ nha bạn tui 🧸🧋',
     anim: 'idle',
   };
 }
@@ -668,27 +735,32 @@ export const Bear3DStudio: React.FC = () => {
     {
       id: 'welcome_bear',
       sender: 'bear',
-      text: 'Chào bạn! Nhắn tin hoặc chạm vào mình để chơi cùng nha 🧸✨',
+      text: 'Hello cưng! Thử các meme & khớp tay chân mới của mình đi nè 🧸✨',
       time: 'Bây giờ',
     },
   ]);
 
-  const latestBearMsg = [...messages].reverse().find((m) => m.sender === 'bear')?.text;
+  const activePreset = ANIM_PRESETS.find((p) => p.id === anim);
+  const latestBearMsg =
+    [...messages].reverse().find((m) => m.sender === 'bear')?.text || activePreset?.meme;
+
+  const handleSelectAnim = (preset: (typeof ANIM_PRESETS)[number]) => {
+    setAnim(preset.id);
+    const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    setMessages((prev) => [
+      ...prev.slice(-14),
+      { id: `meme_${Date.now()}`, sender: 'bear', text: preset.meme, time: now },
+    ]);
+  };
 
   const handleSendChat = (textToSend?: string) => {
     const content = (textToSend ?? chatInput).trim();
     if (!content) return;
-
-    const now = new Date().toLocaleTimeString('vi-VN', {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
+    const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
     const { reply, anim: nextAnim } = getBearReply(content);
     setAnim(nextAnim);
-
     setMessages((prev) => [
-      ...prev,
+      ...prev.slice(-14),
       { id: `u_${Date.now()}`, sender: 'user', text: content, time: now },
       { id: `b_${Date.now() + 1}`, sender: 'bear', text: reply, time: now },
     ]);
@@ -697,27 +769,23 @@ export const Bear3DStudio: React.FC = () => {
 
   return (
     <div className="animate-ios-page space-y-4 pb-6">
-      {/* 3D Viewport Card */}
       <div className="relative overflow-hidden rounded-[28px] border border-pink-200/80 bg-gradient-to-b from-white via-pink-50/50 to-blue-50/40 p-4 shadow-[0_10px_32px_-10px_rgba(30,58,138,0.18)]">
         <div className="flex items-center justify-between">
           <div>
             <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-              3D GAME MASCOT
+              3D ARTICULATED MASCOT
             </span>
             <h2 className="mt-1 text-sm font-extrabold text-blue-950">
-              Bé Gấu Tương Tác 360°
+              Bé Gấu Đa Khớp & Meme 360°
             </h2>
           </div>
 
-          {/* Bear Color Toggle */}
           <div className="flex gap-1.5 rounded-2xl bg-pink-50/90 p-1">
             <button
               type="button"
               onClick={() => setVariant('pink')}
               className={`ios-press rounded-xl px-3 py-1 text-[11px] font-bold transition ${
-                variant === 'pink'
-                  ? 'bg-pink-400 text-white shadow-xs'
-                  : 'text-slate-500'
+                variant === 'pink' ? 'bg-pink-400 text-white shadow-xs' : 'text-slate-500'
               }`}
             >
               Gấu Hồng
@@ -726,9 +794,7 @@ export const Bear3DStudio: React.FC = () => {
               type="button"
               onClick={() => setVariant('blue')}
               className={`ios-press rounded-xl px-3 py-1 text-[11px] font-bold transition ${
-                variant === 'blue'
-                  ? 'bg-blue-900 text-white shadow-xs'
-                  : 'text-slate-500'
+                variant === 'blue' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
               }`}
             >
               Gấu Xanh
@@ -736,7 +802,6 @@ export const Bear3DStudio: React.FC = () => {
           </div>
         </div>
 
-        {/* Speech Bubble from Bear */}
         {latestBearMsg && (
           <div className="mt-2.5 rounded-2xl border border-pink-100 bg-white/90 px-3 py-2 text-center text-xs font-semibold text-blue-950 shadow-xs">
             {latestBearMsg}
@@ -755,31 +820,31 @@ export const Bear3DStudio: React.FC = () => {
         </p>
       </div>
 
-      {/* Animation Presets Grid */}
+      {/* Actions & Meme Grid */}
       <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
         <h3 className="mb-3 text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-          Hiệu ứng & Chuyển động của Gấu
+          Actions & Meme Gen-Z ({ANIM_PRESETS.length} hiệu ứng)
         </h3>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-2">
           {ANIM_PRESETS.map((preset) => {
             const active = anim === preset.id;
             return (
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => setAnim(preset.id)}
-                className={`ios-press flex items-center gap-2.5 rounded-2xl border px-3.5 py-3 text-left transition ${
+                onClick={() => handleSelectAnim(preset)}
+                className={`ios-press flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left transition ${
                   active
                     ? 'border-pink-300 bg-pink-100/80 text-blue-950 shadow-xs'
                     : 'border-pink-100 bg-white text-slate-600 hover:border-pink-200'
                 }`}
               >
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
                     active ? 'bg-blue-900 text-white' : 'bg-pink-50 text-pink-400'
                   }`}
                 >
-                  <GIcon name={preset.icon} size={18} />
+                  <GIcon name={preset.icon} size={16} />
                 </span>
                 <span className="text-xs font-bold">{preset.label}</span>
               </button>
@@ -795,18 +860,15 @@ export const Bear3DStudio: React.FC = () => {
             Khung Chat với Bé Gấu
           </h3>
           <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-500">
-            Online
+            Meme Mode
           </span>
         </div>
 
-        {/* Message List */}
         <div className="mb-3 max-h-48 space-y-2 overflow-y-auto pr-1">
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex flex-col ${
-                msg.sender === 'user' ? 'items-end' : 'items-start'
-              }`}
+              className={`flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`}
             >
               <div
                 className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed font-medium ${
@@ -817,14 +879,11 @@ export const Bear3DStudio: React.FC = () => {
               >
                 {msg.text}
               </div>
-              <span className="mt-0.5 px-1 text-[10px] text-slate-400">
-                {msg.time}
-              </span>
+              <span className="mt-0.5 px-1 text-[10px] text-slate-400">{msg.time}</span>
             </div>
           ))}
         </div>
 
-        {/* Quick Prompts */}
         <div className="mb-3 flex flex-wrap gap-1.5">
           {QUICK_CHAT_PROMPTS.map((q) => (
             <button
@@ -838,7 +897,6 @@ export const Bear3DStudio: React.FC = () => {
           ))}
         </div>
 
-        {/* Input Row */}
         <div className="flex gap-2">
           <input
             type="text"
@@ -847,13 +905,13 @@ export const Bear3DStudio: React.FC = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSendChat();
             }}
-            placeholder="Nhắn gì đó cho bé gấu..."
+            placeholder="Nhắn meme cho bé gấu..."
             className="flex-1 rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs font-medium text-blue-950 outline-hidden focus:border-pink-300"
           />
           <button
             type="button"
             onClick={() => handleSendChat()}
-            className="ios-press flex items-center justify-center rounded-2xl bg-blue-900 px-4 text-xs font-bold text-white"
+            className="ios-press rounded-2xl bg-blue-900 px-4 text-xs font-bold text-white"
           >
             Gửi
           </button>

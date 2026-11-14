@@ -151,30 +151,51 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
     });
   };
 
+  const [copiedCode, setCopiedCode] = useState(false);
+
+  const handleCopyMyCode = () => {
+    navigator.clipboard?.writeText(profile.myCode).catch(() => {});
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 1800);
+  };
+
   if (!profile.isPaired) {
     return (
-      <div className="animate-ios-page space-y-4 pb-6">
-        <div className="rounded-[28px] border border-pink-200/80 bg-gradient-to-br from-white via-pink-50/60 to-blue-50/40 p-5 shadow-[0_10px_32px_-10px_rgba(30,58,138,0.16)]">
-          <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-pink-100 text-pink-500">
-              <GIcon name="favorite" size={24} />
+      <div className="animate-ios-page flex min-h-[68vh] flex-col items-center justify-center px-2 pb-6">
+        <div className="w-full rounded-[30px] border border-pink-100 bg-white p-6 shadow-[0_12px_36px_-12px_rgba(30,58,138,0.12)]">
+          <div className="flex flex-col items-center text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-3xl bg-pink-50 text-pink-500">
+              <GIcon name="favorite" size={28} />
             </span>
-            <div>
-              <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-                TÙY CHỌN COUPLE
+            <h2 className="mt-3 text-base font-extrabold text-blue-950">
+              Liên kết Couple
+            </h2>
+            <p className="mt-1 text-xs text-slate-400">
+              Chia sẻ mã của bạn hoặc nhập mã của người ấy để vào không gian Couple.
+            </p>
+          </div>
+
+          {/* Your Code */}
+          <div className="mt-5 rounded-2xl border border-pink-100 bg-pink-50/50 p-3.5 text-center">
+            <p className="text-[10px] font-extrabold tracking-wider text-slate-400 uppercase">
+              Mã của bạn
+            </p>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <span className="text-lg font-extrabold tracking-widest text-blue-950">
+                {profile.myCode}
               </span>
-              <h2 className="mt-1 text-base font-extrabold text-blue-950">
-                Chế độ Cặp đôi (Không bắt buộc)
-              </h2>
+              <button
+                type="button"
+                onClick={handleCopyMyCode}
+                className="ios-press flex items-center gap-1 rounded-xl bg-white px-2.5 py-1 text-[11px] font-bold text-pink-500 shadow-2xs"
+              >
+                <GIcon name={copiedCode ? 'check' : 'content_copy'} size={13} />
+                {copiedCode ? 'Đã copy' : 'Copy'}
+              </button>
             </div>
           </div>
 
-          <p className="mt-3 text-xs leading-relaxed text-slate-500">
-            Bạn có thể dùng app một mình bình thường, hoặc tạo / tham gia một{' '}
-            <strong className="text-blue-950">Room Couple</strong> để theo dõi %,
-            quẹt ảnh check-in, so sánh 7 ngày và nhắn tin cùng nhau (ví dụ: bạn &amp; Gia Hân).
-          </p>
-
+          {/* Partner Name + Code Input */}
           <div className="mt-4 space-y-3">
             <div>
               <label className="mb-1 block text-[11px] font-bold text-slate-500">
@@ -185,43 +206,39 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
                 value={partnerNameInput}
                 onChange={(e) => setPartnerNameInput(e.target.value)}
                 placeholder="vd: Gia Hân"
-                className="w-full rounded-2xl border border-pink-100 bg-white px-3.5 py-2.5 text-xs font-semibold text-blue-950 outline-hidden focus:border-pink-300"
+                className="w-full rounded-2xl border border-pink-100 bg-pink-50/30 px-3.5 py-2.5 text-xs font-semibold text-blue-950 outline-hidden focus:border-pink-300"
               />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-bold text-slate-500">
+                Nhập mã của người ấy
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={joinRoomInput}
+                  onChange={(e) => setJoinRoomInput(e.target.value.toUpperCase())}
+                  placeholder="vd: DL-9104"
+                  className="flex-1 rounded-2xl border border-pink-100 bg-pink-50/30 px-3.5 py-2.5 text-xs font-bold text-blue-950 uppercase outline-hidden focus:border-pink-300"
+                />
+                <button
+                  type="button"
+                  onClick={handleJoinRoom}
+                  className="ios-press rounded-2xl bg-blue-900 px-4 text-xs font-extrabold text-white"
+                >
+                  Kết nối
+                </button>
+              </div>
             </div>
 
             <button
               type="button"
               onClick={handleCreateRoom}
-              className="ios-press flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20"
+              className="ios-press w-full rounded-2xl border border-pink-200 bg-pink-50/60 py-2.5 text-xs font-bold text-blue-950"
             >
-              <GIcon name="add" size={16} />
-              Tạo Room Couple mới
+              Hoặc tạo mã Room Couple mới
             </button>
-
-            <div className="relative flex items-center py-1">
-              <div className="flex-1 border-t border-pink-100" />
-              <span className="px-3 text-[10px] font-bold text-slate-400 uppercase">
-                hoặc tham gia room có sẵn
-              </span>
-              <div className="flex-1 border-t border-pink-100" />
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={joinRoomInput}
-                onChange={(e) => setJoinRoomInput(e.target.value.toUpperCase())}
-                placeholder="Nhập mã room (vd: RM-4829)"
-                className="flex-1 rounded-2xl border border-pink-100 bg-white px-3.5 py-2.5 text-xs font-bold text-blue-950 uppercase outline-hidden focus:border-pink-300"
-              />
-              <button
-                type="button"
-                onClick={handleJoinRoom}
-                className="ios-press rounded-2xl bg-pink-400 px-4 text-xs font-extrabold text-white"
-              >
-                Vào Room
-              </button>
-            </div>
           </div>
         </div>
       </div>
@@ -624,7 +641,10 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
       </div>
 
       {/* COUPLE CHAT BOX */}
-      <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+      <div
+        id="couple-chat-box"
+        className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]"
+      >
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
             Khung Chat Cặp Đôi ({profile.partnerName})

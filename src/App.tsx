@@ -144,7 +144,9 @@ export function App() {
     return createMockCoupleChat();
   });
 
-  const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(true);
+  const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(
+    () => coupleProfile.isPaired
+  );
   const [currentUser, setCurrentUser] = useState<AppUser | null>(() => loadCurrentUser());
   const [remoteUsers, setRemoteUsers] = useState<AppUser[]>([]);
   const [showUserModal, setShowUserModal] = useState<boolean>(false);
@@ -699,6 +701,20 @@ export function App() {
           </div>
 
           <div className="flex items-center gap-1.5">
+            {/* Bell Notices Button */}
+            <button
+              type="button"
+              onClick={() => setShowNudgeNotice((v) => !v)}
+              className="ios-press relative flex h-8 w-8 items-center justify-center rounded-full border border-pink-100 bg-pink-50/70 text-blue-900 transition hover:bg-pink-100/70"
+              title="Thông báo nhắc nhở"
+              aria-label="Thông báo nhắc nhở"
+            >
+              <GIcon name="notifications_active" size={16} className="text-pink-400" />
+              {coupleProfile.isPaired && latestPartnerNudge && (
+                <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+              )}
+            </button>
+
             {/* Active User Pill */}
             <button
               type="button"
@@ -788,45 +804,6 @@ export function App() {
 
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
-          {/* Partner Nudge Notice on App Open */}
-          {coupleProfile.isPaired && showNudgeNotice && latestPartnerNudge && (
-            <div className="animate-ios-pop mb-4 flex items-center justify-between gap-3 rounded-[22px] border border-pink-200 bg-gradient-to-r from-pink-50 via-white to-blue-50 p-3.5 shadow-[0_8px_24px_-8px_rgba(244,114,182,0.3)]">
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-pink-400 text-white shadow-xs">
-                  <GIcon name="notifications_active" size={18} />
-                </span>
-                <div>
-                  <p className="text-[11px] font-extrabold text-pink-500 uppercase">
-                    Nhắc nhở từ {coupleProfile.partnerName} • {latestPartnerNudge.createdAt}
-                  </p>
-                  <p className="text-xs font-bold text-blue-950">
-                    "{latestPartnerNudge.message}"
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('couple');
-                    setShowNudgeNotice(false);
-                  }}
-                  className="ios-press rounded-xl bg-blue-900 px-2.5 py-1.5 text-[11px] font-bold text-white"
-                >
-                  Trả lời
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNudgeNotice(false)}
-                  className="ios-press flex h-7 w-7 items-center justify-center rounded-full bg-pink-100/80 text-slate-500"
-                  aria-label="Đóng thông báo"
-                >
-                  <GIcon name="close" size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'today' && (
             <TodayView
               key="today-tab"
@@ -1016,6 +993,106 @@ export function App() {
             completedCount={celebrationCount}
             onClose={() => setCelebrationCount(null)}
           />
+        )}
+
+        {/* Floating Message Bubble Shortcut on Home */}
+        {activeTab === 'today' && (
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('couple');
+              setTimeout(() => {
+                document.getElementById('couple-chat-box')?.scrollIntoView({ behavior: 'smooth' });
+              }, 160);
+            }}
+            className="ios-press fixed right-4 bottom-24 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-blue-900 text-white shadow-[0_10px_28px_-6px_rgba(236,72,153,0.55)]"
+            title="Nhắn tin Couple"
+            aria-label="Nhắn tin Couple"
+          >
+            <GIcon name="chat_bubble" size={20} />
+            {coupleProfile.isPaired && coupleChat.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-extrabold text-white ring-2 ring-white">
+                {coupleChat.length}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* Partner Nudge Overlay Modal (Bell / App Open) */}
+        {showNudgeNotice && ((coupleProfile.isPaired && latestPartnerNudge) || nudges.length > 0) && (
+          <div className="animate-ios-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-xs">
+            <div className="animate-ios-sheet w-full max-w-[375px] rounded-[28px] border border-pink-200 bg-white p-5 shadow-[0_24px_60px_-15px_rgba(30,58,138,0.35)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-pink-100 text-pink-500">
+                    <GIcon name="notifications_active" size={20} />
+                  </span>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-blue-950">
+                      Thông báo nhắc nhở
+                    </h3>
+                    <p className="text-[11px] font-medium text-slate-400">
+                      {coupleProfile.isPaired
+                        ? `Từ ${coupleProfile.partnerName}`
+                        : 'Chưa liên kết Couple'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowNudgeNotice(false)}
+                  className="ios-press flex h-8 w-8 items-center justify-center rounded-full bg-pink-50 text-slate-500"
+                >
+                  <GIcon name="close" size={16} />
+                </button>
+              </div>
+
+              <div className="mt-3.5 max-h-56 space-y-2 overflow-y-auto pr-1">
+                {coupleProfile.isPaired ? (
+                  nudges.slice(0, 5).map((n) => (
+                    <div
+                      key={n.id}
+                      className="rounded-2xl border border-pink-100 bg-pink-50/50 px-3.5 py-2.5"
+                    >
+                      <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase">
+                        <span>
+                          {n.from === 'partner' ? coupleProfile.partnerName : coupleProfile.myName}
+                        </span>
+                        <span>{n.createdAt}</span>
+                      </div>
+                      <p className="mt-0.5 text-xs font-bold text-blue-950">
+                        "{n.message}"
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="rounded-2xl bg-pink-50/50 p-3 text-center text-xs font-medium text-slate-500">
+                    Bạn chưa kết nối Couple. Vào tab Couple để liên kết với người ấy nhé!
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNudgeNotice(false)}
+                  className="ios-press flex-1 rounded-2xl border border-pink-100 bg-pink-50/60 py-2.5 text-xs font-bold text-blue-950"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNudgeNotice(false);
+                    setActiveTab('couple');
+                  }}
+                  className="ios-press flex-1 rounded-2xl bg-blue-900 py-2.5 text-xs font-extrabold text-white"
+                >
+                  {coupleProfile.isPaired ? 'Trả lời ngay' : 'Liên kết Couple'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* User Login / Register Modal */}
