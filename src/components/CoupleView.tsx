@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { createMockPartnerWeeklyPercents } from '../data/coupleSeed';
 import type {
   CoupleChatMessage,
   CoupleNudge,
@@ -68,11 +67,11 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
   const partnerWeekly =
     partnerWeeklyPercents && partnerWeeklyPercents.length === 7
       ? partnerWeeklyPercents
-      : createMockPartnerWeeklyPercents();
+      : [0, 0, 0, 0, 0, 0, 0];
   const partnerPercent =
     typeof partnerTodayPercent === 'number'
       ? partnerTodayPercent
-      : (partnerWeekly[partnerWeekly.length - 1] ?? 86);
+      : (partnerWeekly[partnerWeekly.length - 1] ?? 0);
   const coupleStreak = 5;
 
   const myWeekAvg =

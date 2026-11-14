@@ -12,7 +12,11 @@ export type Bear3DAnim =
   | 'flex'
   | 'cry'
   | 'heart_pose'
-  | 'dab';
+  | 'dab'
+  | 'surprised'
+  | 'shy'
+  | 'think'
+  | 'cheer';
 
 export type Bear3DVariant = 'pink' | 'blue';
 
@@ -223,6 +227,18 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       sheen: 0.7,
       sheenColor: new THREE.Color(0xffe4e6),
     });
+    const palette = {
+      pink: {
+        fur: new THREE.Color(0xf9a8d4),
+        accent: new THREE.Color(0xf472b6),
+        scarf: new THREE.Color(0x1e3a8a),
+      },
+      blue: {
+        fur: new THREE.Color(0x7dd3fc),
+        accent: new THREE.Color(0x3b82f6),
+        scarf: new THREE.Color(0xf472b6),
+      },
+    };
 
     const eyeMat = new THREE.MeshPhysicalMaterial({
       color: 0x172554,
@@ -249,6 +265,20 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       color: 0xf43f5e,
       roughness: 0.25,
       clearcoat: 0.8,
+    });
+    const mouthMat = new THREE.MeshStandardMaterial({
+      color: 0x542c42,
+      roughness: 0.75,
+    });
+    const tongueMat = new THREE.MeshStandardMaterial({
+      color: 0xf4729b,
+      roughness: 0.55,
+    });
+    const surpriseMat = new THREE.MeshStandardMaterial({
+      color: 0xffc857,
+      roughness: 0.45,
+      emissive: 0x543300,
+      emissiveIntensity: 0.18,
     });
 
     // Ground Contact Shadow
@@ -342,8 +372,13 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     const smileRight = new THREE.Mesh(new THREE.TubeGeometry(smileCurveRight, 14, 0.018, 8, false), eyeMat);
     headGroup.add(smileLeft, smileRight);
 
-    const mouthOpen = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 14), accentFurMat);
-    mouthOpen.scale.set(1.0, 1.25, 0.5);
+    const mouthOpen = new THREE.Group();
+    const mouthCavity = new THREE.Mesh(new THREE.SphereGeometry(0.075, 18, 16), mouthMat);
+    mouthCavity.scale.set(1.05, 1.15, 0.55);
+    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 12), tongueMat);
+    tongue.scale.set(1.1, 0.58, 0.42);
+    tongue.position.set(0, -0.035, 0.026);
+    mouthOpen.add(mouthCavity, tongue);
     mouthOpen.position.set(0, -0.24, 0.9);
     mouthOpen.visible = false;
     headGroup.add(mouthOpen);
@@ -390,6 +425,39 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     rightCheek.position.set(0.52, -0.1, 0.67);
     headGroup.add(leftCheek, rightCheek);
 
+    const surpriseGroup = new THREE.Group();
+    const exclamationStem = new THREE.Mesh(
+      new THREE.CapsuleGeometry(0.035, 0.2, 5, 10),
+      surpriseMat
+    );
+    exclamationStem.position.set(0.82, 0.69, 0.12);
+    const exclamationDot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), surpriseMat);
+    exclamationDot.position.set(0.82, 0.53, 0.12);
+    surpriseGroup.add(exclamationStem, exclamationDot);
+    surpriseGroup.visible = false;
+    headGroup.add(surpriseGroup);
+
+    const thoughtGroup = new THREE.Group();
+    const thoughtCloud = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 16, 14),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.68 })
+    );
+    thoughtCloud.scale.set(1.55, 0.86, 0.48);
+    thoughtCloud.position.set(0.76, 0.71, 0.12);
+    thoughtGroup.add(thoughtCloud);
+    [0.67, 0.76, 0.85].forEach((x, index) => {
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), surpriseMat);
+      dot.position.set(x, 0.71, 0.19);
+      thoughtGroup.add(dot);
+      if (index === 0) {
+        const trail = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 10), thoughtCloud.material);
+        trail.position.set(0.62, 0.55, 0.1);
+        thoughtGroup.add(trail);
+      }
+    });
+    thoughtGroup.visible = false;
+    headGroup.add(thoughtGroup);
+
     // 2-Segment Articulated Arms (Shoulder -> Upper Arm -> Elbow -> Forearm + Paw)
     const upperArmGeo = new THREE.CapsuleGeometry(0.155, 0.16, 14, 20);
     const forearmGeo = new THREE.CapsuleGeometry(0.145, 0.16, 14, 20);
@@ -407,10 +475,18 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       elbow.position.set(side * 0.11, -0.26, 0.04);
       const forearmMesh = new THREE.Mesh(forearmGeo, accentFurMat);
       forearmMesh.position.set(0, -0.12, 0.04);
-      elbow.add(forearmMesh);
+      const paw = new THREE.Group();
+      paw.position.set(0, -0.27, 0.07);
+      const palm = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 18), furMat);
+      palm.scale.set(1.05, 0.88, 0.78);
+      const palmPad = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 12), bellyMat);
+      palmPad.scale.set(1, 0.82, 0.34);
+      palmPad.position.set(0, -0.015, 0.12);
+      paw.add(palm, palmPad);
+      elbow.add(forearmMesh, paw);
 
       shoulder.add(elbow);
-      return { shoulder, elbow };
+      return { shoulder, elbow, paw };
     };
 
     const leftArm = makeArticulatedArm(-1);
@@ -427,7 +503,14 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       const pad = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 16), bellyMat);
       pad.scale.set(0.9, 0.85, 0.3);
       pad.position.set(0, -0.14, 0.41);
-      hip.add(shoe, pad);
+      const toeGeometry = new THREE.SphereGeometry(0.045, 10, 10);
+      const toes = [-0.095, 0, 0.095].map((x) => {
+        const toe = new THREE.Mesh(toeGeometry, bellyMat);
+        toe.scale.set(1, 0.85, 0.34);
+        toe.position.set(x, -0.1, 0.405);
+        return toe;
+      });
+      hip.add(shoe, pad, ...toes);
       return hip;
     };
     const leftLeg = makeArticulatedLeg(-1);
@@ -449,47 +532,81 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     let movedDist = 0;
     let prevX = 0;
     let targetRotY = 0;
+    let activePointerId: number | null = null;
 
     const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
       isDragging = true;
+      activePointerId = e.pointerId;
       movedDist = 0;
       prevX = e.clientX;
+      dom.setPointerCapture(e.pointerId);
     };
     const onPointerMove = (e: PointerEvent) => {
-      if (!isDragging) return;
+      if (!isDragging || e.pointerId !== activePointerId) return;
       const dx = e.clientX - prevX;
       movedDist += Math.abs(dx);
       prevX = e.clientX;
       targetRotY += dx * 0.015;
     };
-    const onPointerUp = () => {
-      if (isDragging && movedDist < 6) {
+    const finishPointer = (e: PointerEvent, allowTap: boolean) => {
+      if (!isDragging || e.pointerId !== activePointerId) return;
+      if (allowTap && movedDist < 6) {
         squashRef.current = 1.0;
         onTapRef.current?.();
       }
       isDragging = false;
+      activePointerId = null;
     };
+    const onPointerUp = (e: PointerEvent) => finishPointer(e, true);
+    const onPointerCancel = (e: PointerEvent) => finishPointer(e, false);
 
     const dom = renderer.domElement;
     dom.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
+    dom.addEventListener('pointermove', onPointerMove);
+    dom.addEventListener('pointerup', onPointerUp);
+    dom.addEventListener('pointercancel', onPointerCancel);
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') targetRotY -= 0.28;
+      if (e.key === 'ArrowRight') targetRotY += 0.28;
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        squashRef.current = 1;
+        onTapRef.current?.();
+      }
+    };
+    dom.addEventListener('keydown', onKeyDown);
+
+    const resizeRenderer = () => {
+      const nextWidth = container.clientWidth;
+      if (!nextWidth) return;
+      camera.aspect = nextWidth / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(nextWidth, height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    };
+    const resizeObserver = new ResizeObserver(resizeRenderer);
+    resizeObserver.observe(container);
+
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let reduceMotion = motionQuery.matches;
+    const onMotionPreferenceChange = (event: MediaQueryListEvent) => {
+      reduceMotion = event.matches;
+    };
+    motionQuery.addEventListener('change', onMotionPreferenceChange);
 
     let rafId = 0;
     const clock = new THREE.Clock();
 
     const animate = () => {
       rafId = requestAnimationFrame(animate);
-      const t = clock.getElapsedTime();
+      const t = reduceMotion ? 0 : clock.getElapsedTime();
       const currentAnim = animRef.current;
-      const currentVar = variantRef.current;
-
-      const targetFur = currentVar === 'pink' ? 0xf9a8d4 : 0x7dd3fc;
-      const targetAccent = currentVar === 'pink' ? 0xf472b6 : 0x3b82f6;
-      const targetScarf = currentVar === 'pink' ? 0x1e3a8a : 0xf472b6;
-      furMat.color.lerp(new THREE.Color(targetFur), 0.12);
-      accentFurMat.color.lerp(new THREE.Color(targetAccent), 0.12);
-      scarfMat.color.lerp(new THREE.Color(targetScarf), 0.12);
+      const currentPalette = palette[variantRef.current];
+      furMat.color.lerp(currentPalette.fur, 0.12);
+      accentFurMat.color.lerp(currentPalette.accent, 0.12);
+      scarfMat.color.lerp(currentPalette.scarf, 0.12);
 
       squashRef.current *= 0.86;
       const sq = Math.sin(squashRef.current * Math.PI) * 0.14;
@@ -513,13 +630,19 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
 
       leftEye.scale.set(1, 1, 1);
       rightEye.scale.set(1, 1, 1);
+      leftEye.rotation.set(0, 0, 0);
+      rightEye.rotation.set(0, 0, 0);
       leftBrow.position.y = 0.25;
       rightBrow.position.y = 0.25;
       leftBrow.rotation.z = Math.PI / 2 + 0.14;
       rightBrow.rotation.z = Math.PI / 2 - 0.14;
+      mouthOpen.scale.set(1, 1, 1);
       mouthOpen.visible = false;
       tearGroup.visible = false;
       heartGroup.visible = false;
+      surpriseGroup.visible = false;
+      thoughtGroup.visible = false;
+      cheekMat.opacity = 0.58;
 
       if (currentAnim === 'idle') {
         bear.position.y = Math.sin(t * 2.1) * 0.05;
@@ -528,10 +651,10 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         rightEar.rotation.z = -0.32 - Math.sin(t * 2.5) * 0.05;
         leftArm.shoulder.rotation.z = -0.08 + Math.sin(t * 2.1) * 0.05;
         rightArm.shoulder.rotation.z = 0.08 - Math.sin(t * 2.1) * 0.05;
-        if (Math.sin(t * 1.5) > 0.96) {
-          leftEye.scale.y = 0.12;
-          rightEye.scale.y = 0.12;
-        }
+        const blinkPhase = t % 3.4;
+        const blink = Math.max(0, 1 - Math.abs(blinkPhase - 3.25) / 0.09);
+        leftEye.scale.y = Math.max(0.12, 1 - blink * 0.9);
+        rightEye.scale.y = Math.max(0.12, 1 - blink * 0.9);
       } else if (currentAnim === 'clap') {
         bear.position.y = Math.abs(Math.sin(t * 6.5)) * 0.18;
         leftArm.shoulder.rotation.set(-0.85, 0.25, -0.55);
@@ -542,6 +665,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         leftBrow.position.y = 0.28;
         rightBrow.position.y = 0.28;
         mouthOpen.visible = true;
+        mouthOpen.scale.set(0.9, 0.9, 0.9);
         heartGroup.visible = true;
         heartGroup.children.forEach((c, idx) => {
           c.position.y = 1.55 + ((t * 0.85 + idx * 0.35) % 1) * 0.85;
@@ -628,6 +752,65 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         rightArm.elbow.rotation.set(0, 0, 0.1);
         leftEye.scale.y = 0.2;
         rightEye.scale.y = 0.2;
+      } else if (currentAnim === 'surprised') {
+        bear.position.y = Math.abs(Math.sin(t * 4.5)) * 0.1;
+        headGroup.rotation.z = Math.sin(t * 2.2) * 0.045;
+        leftEar.rotation.z = 0.18;
+        rightEar.rotation.z = -0.18;
+        leftArm.shoulder.rotation.z = -1.05;
+        rightArm.shoulder.rotation.z = 1.05;
+        leftEye.scale.set(1.08, 1.28, 1);
+        rightEye.scale.set(1.08, 1.28, 1);
+        leftBrow.position.y = 0.37;
+        rightBrow.position.y = 0.37;
+        mouthOpen.visible = true;
+        mouthOpen.scale.set(1.28, 1.42, 1.1);
+        surpriseGroup.visible = true;
+        cheekMat.opacity = 0.34;
+      } else if (currentAnim === 'shy') {
+        bear.position.y = Math.sin(t * 2.3) * 0.025;
+        headGroup.rotation.z = 0.2 + Math.sin(t * 1.7) * 0.025;
+        leftEar.rotation.z = 0.48;
+        rightEar.rotation.z = -0.6;
+        leftArm.shoulder.rotation.z = -1.15;
+        leftArm.elbow.rotation.z = 0.78;
+        rightArm.shoulder.rotation.z = 1.15;
+        rightArm.elbow.rotation.z = -0.78;
+        leftEye.scale.y = 0.62;
+        rightEye.scale.y = 0.62;
+        leftBrow.position.y = 0.21;
+        rightBrow.position.y = 0.21;
+        cheekMat.opacity = 0.9;
+        heartGroup.visible = true;
+        heartGroup.children.forEach((c, idx) => {
+          c.position.y = 1.58 + Math.sin(t * 2.6 + idx) * 0.12;
+          c.rotation.y = t * 1.8;
+        });
+      } else if (currentAnim === 'think') {
+        headGroup.rotation.z = -0.08 + Math.sin(t * 1.2) * 0.025;
+        rightArm.shoulder.rotation.set(-0.42, 0, 0.62);
+        rightArm.elbow.rotation.set(-0.48, 0, -1.2);
+        leftArm.shoulder.rotation.z = -0.1;
+        leftEye.rotation.y = 0.16;
+        rightEye.rotation.y = 0.16;
+        leftBrow.position.y = 0.34;
+        leftBrow.rotation.z = Math.PI / 2 + 0.28;
+        thoughtGroup.visible = true;
+      } else if (currentAnim === 'cheer') {
+        bear.position.y = Math.abs(Math.sin(t * 5.8)) * 0.16;
+        torsoGroup.rotation.z = Math.sin(t * 3) * 0.06;
+        leftArm.shoulder.rotation.z = -1.65 + Math.sin(t * 5.8) * 0.08;
+        rightArm.shoulder.rotation.z = 1.65 - Math.sin(t * 5.8) * 0.08;
+        leftArm.elbow.rotation.z = -0.24;
+        rightArm.elbow.rotation.z = 0.24;
+        leftLeg.rotation.x = Math.sin(t * 5.8) * 0.22;
+        rightLeg.rotation.x = -Math.sin(t * 5.8) * 0.22;
+        mouthOpen.visible = true;
+        heartGroup.visible = true;
+        heartGroup.children.forEach((c, idx) => {
+          c.position.y = 1.6 + Math.sin(t * 3.2 + idx) * 0.24;
+          c.rotation.y = t * 2.5;
+        });
       }
 
       const shadowScale = Math.max(0.75, 1 - bear.position.y * 0.45);
@@ -642,8 +825,30 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     return () => {
       cancelAnimationFrame(rafId);
       dom.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
+      dom.removeEventListener('pointermove', onPointerMove);
+      dom.removeEventListener('pointerup', onPointerUp);
+      dom.removeEventListener('pointercancel', onPointerCancel);
+      dom.removeEventListener('keydown', onKeyDown);
+      resizeObserver.disconnect();
+      motionQuery.removeEventListener('change', onMotionPreferenceChange);
+
+      const geometries = new Set<THREE.BufferGeometry>();
+      const materials = new Set<THREE.Material>();
+      const textures = new Set<THREE.Texture>();
+      scene.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        geometries.add(object.geometry);
+        const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
+        objectMaterials.forEach((material) => {
+          materials.add(material);
+          Object.values(material).forEach((value) => {
+            if (value instanceof THREE.Texture) textures.add(value);
+          });
+        });
+      });
+      geometries.forEach((geometry) => geometry.dispose());
+      materials.forEach((material) => material.dispose());
+      textures.forEach((texture) => texture.dispose());
       renderer.dispose();
     };
   }, [height]);

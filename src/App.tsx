@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AddTaskModal } from './components/AddTaskModal';
 import { Bear3DStudio } from './components/Bear3DStudio';
 import { CoupleView } from './components/CoupleView';
@@ -14,12 +14,7 @@ import {
 } from './components/JellycatMascot';
 import { PhotoCheckModal } from './components/PhotoCheckModal';
 import { UserLoginModal } from './components/UserLoginModal';
-import {
-  createDefaultCoupleProfile,
-  createMockCoupleChat,
-  createMockNudges,
-  createMockPartnerCheckins,
-} from './data/coupleSeed';
+import { createDefaultCoupleProfile } from './data/coupleSeed';
 import { createSeedData } from './data/seedData';
 import {
   TRANSLATIONS,
@@ -93,12 +88,12 @@ export function App() {
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const cached = loadLocalData();
-    return cached ? cached.tasks : createSeedData().tasks;
+    return cached ? cached.tasks : [];
   });
 
   const [logs, setLogs] = useState<TaskLog[]>(() => {
     const cached = loadLocalData();
-    return cached ? cached.logs : createSeedData().logs;
+    return cached ? cached.logs : [];
   });
 
   const [dailyNotes, setDailyNotes] = useState<Record<string, DailyNote>>(() =>
@@ -127,7 +122,7 @@ export function App() {
     } catch {
       // ignore
     }
-    return createMockPartnerCheckins();
+    return [];
   });
 
   const [nudges, setNudges] = useState<CoupleNudge[]>(() => {
@@ -137,7 +132,7 @@ export function App() {
     } catch {
       // ignore
     }
-    return createMockNudges();
+    return [];
   });
 
   const [coupleChat, setCoupleChat] = useState<CoupleChatMessage[]>(() => {
@@ -147,7 +142,7 @@ export function App() {
     } catch {
       // ignore
     }
-    return createMockCoupleChat();
+    return [];
   });
 
   const [showNudgeNotice, setShowNudgeNotice] = useState<boolean>(
@@ -259,13 +254,17 @@ export function App() {
     detectWeather(10.8231, 106.6297);
   }, []);
 
+  const isPullingRef = useRef(false);
+
   const handlePullFromSheets = async (
     url = sheetUrl,
-    allowEmpty = false,
-    userOverride?: AppUser | null
+    allowEmpty = true,
+    userOverride?: AppUser | null,
+    silent = false
   ) => {
-    if (!url) return;
-    setSyncState('syncing');
+    if (!url || isPullingRef.current) return;
+    isPullingRef.current = true;
+    if (!silent) setSyncState('syncing');
     setLastSyncError(null);
     try {
       const remote = await fetchFromSheets(url);
@@ -348,6 +347,8 @@ export function App() {
                 : m.sender,
           }))
         );
+      } else if (allowEmpty) {
+        setCoupleChat([]);
       }
       if (remote.coupleNudges) {
         const filteredNudges = activeRoom
@@ -364,12 +365,20 @@ export function App() {
                 : n.from,
           }))
         );
+      } else if (allowEmpty) {
+        setNudges([]);
       }
-      if (remote.partnerCheckins) setPartnerCheckins(remote.partnerCheckins);
+      if (remote.partnerCheckins) {
+        setPartnerCheckins(remote.partnerCheckins);
+      } else if (allowEmpty) {
+        setPartnerCheckins([]);
+      }
       setSyncState('synced');
     } catch (err) {
       setSyncState('error');
       setLastSyncError(err instanceof Error ? err.message : 'Không thể tải dữ liệu');
+    } finally {
+      isPullingRef.current = false;
     }
   };
 
@@ -818,20 +827,16 @@ export function App() {
 
   useEffect(() => {
     if (!sheetUrl) return;
-    handlePullFromSheets(sheetUrl);
-  }, []);
-
-  useEffect(() => {
-    if (!sheetUrl || !currentUser || !coupleProfile.isPaired) return;
+    handlePullFromSheets(sheetUrl, true);
     const timer = setInterval(() => {
-      handlePullFromSheets(sheetUrl);
-    }, 20_000);
+      handlePullFromSheets(sheetUrl, true, undefined, true);
+    }, 5_000);
     return () => clearInterval(timer);
-  }, [sheetUrl, currentUser?.user_id, coupleProfile.isPaired]);
+  }, [sheetUrl, currentUser?.user_id, coupleProfile.isPaired, coupleProfile.partnerCode]);
 
   useEffect(() => {
     if (activeTab === 'couple' && sheetUrl && currentUser) {
-      handlePullFromSheets(sheetUrl);
+      handlePullFromSheets(sheetUrl, true);
     }
   }, [activeTab]);
 
