@@ -786,7 +786,7 @@ export function App() {
         {/* Scrollable Content */}
         <main className="flex-1 overflow-y-auto px-4 pt-4 pb-28">
           {/* Partner Nudge Notice on App Open */}
-          {showNudgeNotice && latestPartnerNudge && (
+          {coupleProfile.isPaired && showNudgeNotice && latestPartnerNudge && (
             <div className="animate-ios-pop mb-4 flex items-center justify-between gap-3 rounded-[22px] border border-pink-200 bg-gradient-to-r from-pink-50 via-white to-blue-50 p-3.5 shadow-[0_8px_24px_-8px_rgba(244,114,182,0.3)]">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-pink-400 text-white shadow-xs">

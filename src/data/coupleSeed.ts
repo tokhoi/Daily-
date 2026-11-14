@@ -35,9 +35,9 @@ export function createDefaultCoupleProfile(): CoupleProfile {
   return {
     myName: 'Bạn',
     myCode: 'DL-4829',
-    partnerName: 'Minh Anh',
-    partnerCode: 'DL-9104',
-    isPaired: true,
+    partnerName: 'Gia Hân',
+    partnerCode: '',
+    isPaired: false,
     bearStyle: 'pink',
   };
 }

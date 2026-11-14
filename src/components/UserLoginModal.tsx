@@ -19,14 +19,14 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
   const [displayName, setDisplayName] = useState(currentUser?.display_name || '');
   const [pin, setPin] = useState('');
   const [partnerId, setPartnerId] = useState(currentUser?.partner_id || '');
-  const [roomCode, setRoomCode] = useState(currentUser?.room_code || 'LOVE-2026');
+  const [roomCode, setRoomCode] = useState(currentUser?.room_code || '');
   const [error, setError] = useState('');
 
   const handleSelectExisting = (u: AppUser) => {
     setUserId(u.user_id);
     setDisplayName(u.display_name);
     setPartnerId(u.partner_id || '');
-    setRoomCode(u.room_code || 'LOVE-2026');
+    setRoomCode(u.room_code || '');
     setError('');
   };
 
@@ -50,7 +50,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
       display_name: cleanName,
       pin: pin.trim() || found?.pin || '0000',
       partner_id: partnerId.trim().toLowerCase().replace(/\s+/g, '_') || undefined,
-      room_code: roomCode.trim().toUpperCase() || 'LOVE-2026',
+      room_code: roomCode.trim().toUpperCase() || undefined,
       created_at: found?.created_at || new Date().toISOString(),
     };
 
@@ -154,13 +154,13 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
             </div>
             <div>
               <label className="mb-1 block text-[11px] font-bold text-slate-500">
-                ID Người ấy (Partner)
+                ID Người ấy (tuỳ chọn)
               </label>
               <input
                 type="text"
                 value={partnerId}
                 onChange={(e) => setPartnerId(e.target.value)}
-                placeholder="vd: linh"
+                placeholder="vd: giahan"
                 className="w-full rounded-xl border border-pink-100 bg-pink-50/40 px-3 py-2 text-xs font-semibold text-blue-950 outline-hidden focus:border-pink-300"
               />
             </div>
@@ -168,13 +168,13 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
 
           <div>
             <label className="mb-1 block text-[11px] font-bold text-slate-500">
-              Mã phòng Couple
+              Mã phòng Couple (tuỳ chọn — có thể tạo sau)
             </label>
             <input
               type="text"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
-              placeholder="LOVE-2026"
+              placeholder="Để trống nếu chưa ghép đôi"
               className="w-full rounded-xl border border-pink-100 bg-pink-50/40 px-3 py-2 text-xs font-semibold text-blue-950 uppercase outline-hidden focus:border-pink-300"
             />
           </div>
