@@ -364,6 +364,20 @@ export async function syncUserToSheets(scriptUrl: string, user: AppUser): Promis
   await postToSheets(scriptUrl, { action: 'upsert_user', user });
 }
 
+export async function pairCoupleOnSheets(
+  scriptUrl: string,
+  params: { user_id: string; partner_code: string; room_code: string; partner_name?: string }
+): Promise<{ user: AppUser | null; partner: AppUser | null }> {
+  const res = await postToSheets(scriptUrl, {
+    action: 'pair_couple',
+    ...params,
+  });
+  return {
+    user: (res.user as AppUser) || null,
+    partner: (res.partner as AppUser) || null,
+  };
+}
+
 export async function syncCoupleProfileToSheets(
   scriptUrl: string,
   profile: CoupleProfile

@@ -296,6 +296,39 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    if (action === 'pair_couple') {
+      const sheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(sheet, USER_HEADERS);
+      const myId = String(body.user_id || '').trim().toLowerCase();
+      const partnerCode = String(body.partner_code || '').trim().toUpperCase();
+      const roomCode = String(body.room_code || partnerCode || '').trim().toUpperCase();
+
+      const myUser = users.find((u) => String(u.user_id || '').toLowerCase() === myId);
+      const partnerUser = users.find(
+        (u) =>
+          String(u.user_id || '').toLowerCase() !== myId &&
+          (String(u.user_id || '').toUpperCase() === partnerCode ||
+            (u.room_code && String(u.room_code).toUpperCase() === roomCode))
+      );
+
+      if (myUser) {
+        myUser.room_code = roomCode;
+        if (partnerUser) {
+          myUser.partner_id = partnerUser.user_id;
+          partnerUser.partner_id = myUser.user_id;
+          partnerUser.room_code = roomCode;
+          upsertRow(sheet, USER_HEADERS, 'user_id', partnerUser.user_id, partnerUser);
+        }
+        upsertRow(sheet, USER_HEADERS, 'user_id', myUser.user_id, myUser);
+      }
+
+      return jsonResponse({
+        ok: true,
+        user: myUser ? toPublicUser(myUser) : null,
+        partner: partnerUser ? toPublicUser(partnerUser) : null,
+      });
+    }
+
     if (action === 'upsert_couple_profile') {
       const sheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
       const profile = body.profile || {};

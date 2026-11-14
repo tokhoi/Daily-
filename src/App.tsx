@@ -34,6 +34,7 @@ import {
   loadCurrentUser,
   loadDailyNotes,
   loadLocalData,
+  pairCoupleOnSheets,
   saveCurrentUser,
   saveDailyNotes,
   saveLocalData,
@@ -269,9 +270,18 @@ export function App() {
         setLogs(remote.logs);
       }
       if (remote.users) setRemoteUsers(remote.users);
+      const activeRoom = (
+        currentUser?.room_code ||
+        coupleProfile.partnerCode ||
+        coupleProfile.myCode ||
+        ''
+      ).toUpperCase();
       if (remote.coupleChat) {
+        const filteredChat = activeRoom
+          ? remote.coupleChat.filter((m) => !m.room_code || m.room_code.toUpperCase() === activeRoom)
+          : remote.coupleChat;
         setCoupleChat(
-          remote.coupleChat.map((m) => ({
+          filteredChat.map((m) => ({
             ...m,
             sender:
               m.sender_id && currentUser
@@ -283,8 +293,11 @@ export function App() {
         );
       }
       if (remote.coupleNudges) {
+        const filteredNudges = activeRoom
+          ? remote.coupleNudges.filter((n) => !n.room_code || n.room_code.toUpperCase() === activeRoom)
+          : remote.coupleNudges;
         setNudges(
-          remote.coupleNudges.map((n) => ({
+          filteredNudges.map((n) => ({
             ...n,
             from:
               n.sender_id && currentUser
@@ -364,6 +377,30 @@ export function App() {
           setSyncState('error');
           setLastSyncError(err instanceof Error ? err.message : 'Lỗi đồng bộ log');
         });
+
+      if (coupleProfile.isPaired && taggedLog.status === 'completed') {
+        const task = tasks.find((t) => t.id === taggedLog.task_id);
+        if (task) {
+          const checkin: PartnerCheckin = {
+            id: `pc_${taggedLog.id}`,
+            taskTitle: task.title,
+            emoji: task.emoji || 'favorite',
+            color: task.color || '#F472B6',
+            completedAt: new Date().toLocaleTimeString('vi-VN', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            note: taggedLog.note || undefined,
+            photo: taggedLog.photo || '',
+            reaction: null,
+          };
+          setPartnerCheckins((prev) => {
+            const exists = prev.some((c) => c.id === checkin.id);
+            return exists ? prev.map((c) => (c.id === checkin.id ? checkin : c)) : [checkin, ...prev];
+          });
+          syncPartnerCheckinToSheets(sheetUrl, checkin).catch(console.error);
+        }
+      }
     }
   };
 
@@ -599,8 +636,55 @@ export function App() {
   };
 
   const handleUpdateCoupleProfile = (next: CoupleProfile) => {
-    setCoupleProfile(next);
-    if (sheetUrl) syncCoupleProfileToSheets(sheetUrl, next).catch(console.error);
+    let resolvedProfile = next;
+    const roomCode = (next.partnerCode || next.myCode || '').trim().toUpperCase();
+
+    if (next.isPaired && currentUser) {
+      const matchedPartner = remoteUsers.find(
+        (u) =>
+          u.user_id !== currentUser.user_id &&
+          (u.user_id.toUpperCase() === roomCode ||
+            (u.room_code && u.room_code.toUpperCase() === roomCode))
+      );
+      const updatedUser: AppUser = {
+        ...currentUser,
+        room_code: roomCode,
+        partner_id: matchedPartner?.user_id || currentUser.partner_id,
+      };
+      saveCurrentUser(updatedUser);
+      setCurrentUser(updatedUser);
+
+      if (matchedPartner && (!next.partnerName || next.partnerName === 'Gia Hân')) {
+        resolvedProfile = { ...next, partnerName: matchedPartner.display_name };
+      }
+
+      if (sheetUrl) {
+        pairCoupleOnSheets(sheetUrl, {
+          user_id: currentUser.user_id,
+          partner_code: roomCode,
+          room_code: roomCode,
+          partner_name: resolvedProfile.partnerName,
+        })
+          .then((res) => {
+            if (res.user) {
+              const mergedUser: AppUser = { ...currentUser, ...res.user };
+              saveCurrentUser(mergedUser);
+              setCurrentUser(mergedUser);
+            }
+            if (res.partner) {
+              setCoupleProfile((prev) => ({
+                ...prev,
+                partnerName: res.partner?.display_name || prev.partnerName,
+              }));
+            }
+            handlePullFromSheets(sheetUrl);
+          })
+          .catch(console.error);
+      }
+    }
+
+    setCoupleProfile(resolvedProfile);
+    if (sheetUrl) syncCoupleProfileToSheets(sheetUrl, resolvedProfile).catch(console.error);
   };
 
   const handleSendNudge = (message: string) => {
@@ -663,11 +747,25 @@ export function App() {
 
   const myWeeklyPercents = calcWeeklyPercents(myTasks, myLogs);
   const realPartnerWeekly =
-    partnerTasks.length > 0
+    coupleProfile.isPaired && (partnerTasks.length > 0 || Boolean(currentUser?.partner_id))
       ? calcWeeklyPercents(partnerTasks, partnerLogs).map((d) => d.percent)
       : undefined;
   const realPartnerTodayPercent =
     realPartnerWeekly !== undefined ? realPartnerWeekly[realPartnerWeekly.length - 1] : undefined;
+
+  useEffect(() => {
+    if (!sheetUrl || !currentUser || !coupleProfile.isPaired) return;
+    const timer = setInterval(() => {
+      handlePullFromSheets(sheetUrl);
+    }, 20_000);
+    return () => clearInterval(timer);
+  }, [sheetUrl, currentUser?.user_id, coupleProfile.isPaired]);
+
+  useEffect(() => {
+    if (activeTab === 'couple' && sheetUrl && currentUser) {
+      handlePullFromSheets(sheetUrl);
+    }
+  }, [activeTab]);
 
   const latestPartnerNudge = nudges.find((n) => n.from === 'partner');
 
@@ -1023,11 +1121,12 @@ export function App() {
           </div>
         )}
 
-        {/* User Login / Register Modal */}
+        {/* User Login / Register / Profile Modal */}
         {(showUserModal || (!showSetupOverlay && !currentUser)) && (
           <UserLoginModal
             sheetUrl={sheetUrl}
             currentUser={currentUser}
+            coupleProfile={coupleProfile}
             onAuthSuccess={handleLoginUser}
             onLogout={handleLogoutUser}
             onClose={currentUser ? () => setShowUserModal(false) : undefined}
