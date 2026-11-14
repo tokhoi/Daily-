@@ -237,6 +237,8 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
           )}
         </div>
       )}
+      {!showCoupleStats && (
+        <>
       {/* iOS Sliding Segmented Control */}
       <div className="relative grid grid-cols-3 rounded-2xl border border-pink-100 bg-white p-1 shadow-[0_4px_20px_-6px_rgba(236,72,153,0.10)]">
         {/* Sliding pill */}
@@ -498,6 +500,8 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
             );
           })}
         </div>
+      )}
+        </>
       )}
     </div>
   );
