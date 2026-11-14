@@ -17,6 +17,7 @@ interface TodayViewProps {
   tasks: Task[];
   logs: TaskLog[];
   dailyNote?: DailyNote;
+  weatherTip?: string;
   scrollToTasksTrigger?: number;
   onToggleBoolean: (task: Task, dateKey: string) => void;
   onIncrementCount: (task: Task, dateKey: string, delta: number) => void;
@@ -49,6 +50,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   tasks,
   logs,
   dailyNote,
+  weatherTip,
   scrollToTasksTrigger = 0,
   onToggleBoolean,
   onIncrementCount,
@@ -602,6 +604,13 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <p className="mt-1 text-[11px] text-slate-400">
             Chưa có ghi chú nào cho ngày này.
           </p>
+        )}
+
+        {weatherTip && (
+          <div className="mt-2.5 flex items-start gap-1.5 rounded-xl bg-blue-50/60 px-3 py-2 text-[11px] font-semibold text-blue-900">
+            <GIcon name="wb_sunny" size={14} className="mt-0.5 text-pink-400" />
+            <span className="leading-relaxed">{weatherTip}</span>
+          </div>
         )}
       </div>
 

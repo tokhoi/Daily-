@@ -158,6 +158,7 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
 interface WelcomeOverlayModalProps {
   pendingTasks: Task[];
   initialDailyNote?: string;
+  weatherTip?: string;
   onGoToTasks: (dailyNoteText: string) => void;
   onDismiss: (dailyNoteText: string) => void;
 }
@@ -165,6 +166,7 @@ interface WelcomeOverlayModalProps {
 export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
   pendingTasks,
   initialDailyNote = '',
+  weatherTip = '',
   onGoToTasks,
   onDismiss,
 }) => {
@@ -195,6 +197,11 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
               ? `Hôm nay còn ${pendingTasks.length} việc chưa xong nè`
               : 'Chào ngày mới tốt lành!'}
           </h3>
+          {weatherTip && (
+            <p className="mt-2 rounded-2xl border border-pink-100 bg-blue-50/60 px-3 py-2 text-[11px] font-semibold leading-relaxed text-blue-900">
+              {weatherTip}
+            </p>
+          )}
         </div>
 
         {pendingTasks.length > 0 && (

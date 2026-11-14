@@ -33,6 +33,9 @@ export function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('sakura');
+  const [weatherTip, setWeatherTip] = useState<string>(
+    'Ngoài trời đang nắng — ra đường nhớ mặc áo khoác và bôi kem chống nắng nhé!'
+  );
   const [celebrationCount, setCelebrationCount] = useState<number | null>(null);
   const [pendingPhotoCheck, setPendingPhotoCheck] = useState<{
     task: Task;
@@ -86,21 +89,33 @@ export function App() {
     const detectWeather = async (lat: number, lon: number) => {
       try {
         const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code`
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,temperature_2m`
         );
         if (!res.ok) return;
         const json = await res.json();
         const code = Number(json?.current?.weather_code);
+        const temp = json?.current?.temperature_2m;
+        const tempText = typeof temp === 'number' ? ` (${Math.round(temp)}°C)` : '';
+
         if (
           (code >= 51 && code <= 67) ||
           (code >= 80 && code <= 82) ||
           (code >= 95 && code <= 99)
         ) {
           setWeatherMode('rain');
+          setWeatherTip(
+            `Ngoài trời đang mưa${tempText} — ra đường nhớ mặc áo mưa hoặc mang ô nhé!`
+          );
         } else if (code >= 45 && code <= 48) {
           setWeatherMode('sparkle');
+          setWeatherTip(
+            `Trời hơi âm u${tempText} — ra đường nhớ mang theo áo khoác mỏng hoặc ô phòng hờ nhé!`
+          );
         } else {
           setWeatherMode('sakura');
+          setWeatherTip(
+            `Ngoài trời đang nắng${tempText} — ra đường nhớ mặc áo khoác và bôi kem chống nắng nhé!`
+          );
         }
       } catch {
         // Keep default sakura on network failure
@@ -459,6 +474,7 @@ export function App() {
               tasks={tasks}
               logs={logs}
               dailyNote={dailyNotes[selectedDate]}
+              weatherTip={weatherTip}
               scrollToTasksTrigger={scrollToTasksTrigger}
               onToggleBoolean={handleToggleBoolean}
               onIncrementCount={handleIncrementCount}
@@ -574,6 +590,7 @@ export function App() {
           <WelcomeOverlayModal
             pendingTasks={pendingTodayTasks}
             initialDailyNote={dailyNotes[todayKey]?.text || ''}
+            weatherTip={weatherTip}
             onGoToTasks={(noteText) => {
               if (noteText.trim()) {
                 handleSaveDailyNote(todayKey, {
