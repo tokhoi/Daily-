@@ -31,8 +31,6 @@ interface TodayViewProps {
   onOpenAddModal: () => void;
 }
 
-const WEEKDAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
 const CONFETTI_PARTICLES = [
   { tx: '-34px', ty: '-36px', rot: '-45deg', color: '#F472B6', size: 7 },
   { tx: '30px', ty: '-40px', rot: '60deg', color: '#1E3A8A', size: 8 },
