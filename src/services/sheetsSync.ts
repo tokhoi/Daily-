@@ -1,10 +1,28 @@
-import type { Task, TaskLog } from '../types/habit';
+import type { DailyNote, Task, TaskLog } from '../types/habit';
 
 const STORAGE_KEYS = {
   TASKS: 'daily_miniapp_tasks_v1',
   LOGS: 'daily_miniapp_logs_v1',
+  DAILY_NOTES: 'daily_miniapp_daily_notes_v1',
   SHEET_URL: 'daily_miniapp_sheet_url_v1',
 };
+
+export function loadDailyNotes(): Record<string, DailyNote> {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.DAILY_NOTES);
+    return raw ? (JSON.parse(raw) as Record<string, DailyNote>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveDailyNotes(notes: Record<string, DailyNote>): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DAILY_NOTES, JSON.stringify(notes));
+  } catch {
+    // ignore
+  }
+}
 
 export function loadLocalData(): { tasks: Task[]; logs: TaskLog[] } | null {
   try {
@@ -79,6 +97,8 @@ export async function fetchFromSheets(
       target_value: Number(t.target_value) || 1,
       target_period: t.target_period === 'week' ? 'week' : 'day',
       unit: t.unit ? String(t.unit) : 'lần',
+      default_note: t.default_note ? String(t.default_note) : '',
+      default_note_done: Boolean(t.default_note_done),
       created_at: t.created_at ? String(t.created_at) : new Date().toISOString(),
       archived_at: t.archived_at ? String(t.archived_at) : null,
     }));

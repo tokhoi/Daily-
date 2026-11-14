@@ -27,6 +27,8 @@ const TASK_HEADERS = [
   'target_value',
   'target_period',
   'unit',
+  'default_note',
+  'default_note_done',
   'created_at',
   'archived_at',
 ];

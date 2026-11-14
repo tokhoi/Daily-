@@ -16,13 +16,15 @@ import {
   bulkSyncToSheets,
   fetchFromSheets,
   getSavedSheetUrl,
+  loadDailyNotes,
   loadLocalData,
+  saveDailyNotes,
   saveLocalData,
   saveSheetUrl,
   syncLogToSheets,
   syncTaskToSheets,
 } from './services/sheetsSync';
-import type { AppTab, SyncState, Task, TaskLog } from './types/habit';
+import type { AppTab, DailyNote, SyncState, Task, TaskLog } from './types/habit';
 import { getLogCompletionRatio, isTaskScheduledForDate, toDateKey } from './utils/dateUtils';
 
 export function App() {
@@ -55,6 +57,10 @@ export function App() {
     return cached ? cached.logs : createSeedData().logs;
   });
 
+  const [dailyNotes, setDailyNotes] = useState<Record<string, DailyNote>>(() =>
+    loadDailyNotes()
+  );
+
   const [sheetUrl, setSheetUrl] = useState<string>(() => getSavedSheetUrl());
   const [syncState, setSyncState] = useState<SyncState>(() =>
     getSavedSheetUrl() ? 'synced' : 'local'
@@ -64,6 +70,10 @@ export function App() {
   useEffect(() => {
     saveLocalData(tasks, logs);
   }, [tasks, logs]);
+
+  useEffect(() => {
+    saveDailyNotes(dailyNotes);
+  }, [dailyNotes]);
 
   useEffect(() => {
     if (!sheetUrl) return;
@@ -299,6 +309,24 @@ export function App() {
     }
   };
 
+  const handleToggleTaskDefaultNote = (task: Task) => {
+    const updated: Task = {
+      ...task,
+      default_note_done: !task.default_note_done,
+    };
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+    if (sheetUrl) {
+      syncTaskToSheets(sheetUrl, updated).catch(console.error);
+    }
+  };
+
+  const handleSaveDailyNote = (dateKey: string, next: DailyNote) => {
+    setDailyNotes((prev) => ({
+      ...prev,
+      [dateKey]: next,
+    }));
+  };
+
   const handleArchiveTask = (task: Task) => {
     const archivedTask: Task = {
       ...task,
@@ -430,11 +458,14 @@ export function App() {
               onSelectDate={setSelectedDate}
               tasks={tasks}
               logs={logs}
+              dailyNote={dailyNotes[selectedDate]}
               scrollToTasksTrigger={scrollToTasksTrigger}
               onToggleBoolean={handleToggleBoolean}
               onIncrementCount={handleIncrementCount}
               onToggleSkip={handleToggleSkip}
               onUpdateNote={handleUpdateNote}
+              onToggleTaskDefaultNote={handleToggleTaskDefaultNote}
+              onSaveDailyNote={handleSaveDailyNote}
               onArchiveTask={handleArchiveTask}
               onEditTask={(task) => {
                 setEditingTask(task);
@@ -538,17 +569,32 @@ export function App() {
           />
         )}
 
-        {/* Step 2: Welcome Task Reminder Overlay */}
-        {!showSetupOverlay && showWelcomeOverlay && pendingTodayTasks.length > 0 && (
+        {/* Step 2: Welcome Task Reminder + Daily Note Overlay */}
+        {!showSetupOverlay && showWelcomeOverlay && (
           <WelcomeOverlayModal
             pendingTasks={pendingTodayTasks}
-            onGoToTasks={() => {
+            initialDailyNote={dailyNotes[todayKey]?.text || ''}
+            onGoToTasks={(noteText) => {
+              if (noteText.trim()) {
+                handleSaveDailyNote(todayKey, {
+                  text: noteText.trim(),
+                  done: dailyNotes[todayKey]?.done ?? false,
+                });
+              }
               setShowWelcomeOverlay(false);
               setActiveTab('today');
               setSelectedDate(todayKey);
               setScrollToTasksTrigger((n) => n + 1);
             }}
-            onDismiss={() => setShowWelcomeOverlay(false)}
+            onDismiss={(noteText) => {
+              if (noteText.trim()) {
+                handleSaveDailyNote(todayKey, {
+                  text: noteText.trim(),
+                  done: dailyNotes[todayKey]?.done ?? false,
+                });
+              }
+              setShowWelcomeOverlay(false);
+            }}
           />
         )}
 

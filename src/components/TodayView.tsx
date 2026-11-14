@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import type { Task, TaskLog } from '../types/habit';
+import type { DailyNote, Task, TaskLog } from '../types/habit';
 import {
   addDays,
   formatShortDate,
@@ -16,11 +16,14 @@ interface TodayViewProps {
   onSelectDate: (dateKey: string) => void;
   tasks: Task[];
   logs: TaskLog[];
+  dailyNote?: DailyNote;
   scrollToTasksTrigger?: number;
   onToggleBoolean: (task: Task, dateKey: string) => void;
   onIncrementCount: (task: Task, dateKey: string, delta: number) => void;
   onToggleSkip: (task: Task, dateKey: string) => void;
   onUpdateNote: (task: Task, dateKey: string, note: string) => void;
+  onToggleTaskDefaultNote: (task: Task) => void;
+  onSaveDailyNote: (dateKey: string, next: DailyNote) => void;
   onArchiveTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onOpenAddModal: () => void;
@@ -45,11 +48,14 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onSelectDate,
   tasks,
   logs,
+  dailyNote,
   scrollToTasksTrigger = 0,
   onToggleBoolean,
   onIncrementCount,
   onToggleSkip,
   onUpdateNote,
+  onToggleTaskDefaultNote,
+  onSaveDailyNote,
   onArchiveTask,
   onEditTask,
   onOpenAddModal,
@@ -63,6 +69,8 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const [editingNoteTaskId, setEditingNoteTaskId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [isEditingDailyNote, setIsEditingDailyNote] = useState(false);
+  const [dailyNoteDraft, setDailyNoteDraft] = useState('');
 
   const holdTimerRef = useRef<number | null>(null);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
@@ -292,7 +300,28 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </div>
         </div>
 
-        {/* Photo Proof Thumbnail & Saved Note Preview */}
+        {/* Task Default Note (with tickable checkbox) */}
+        {task.default_note && (
+          <label className="mt-2.5 flex cursor-pointer items-center gap-2 rounded-xl border border-pink-100 bg-pink-50/40 px-3 py-1.5 text-xs">
+            <input
+              type="checkbox"
+              checked={Boolean(task.default_note_done)}
+              onChange={() => onToggleTaskDefaultNote(task)}
+              className="h-3.5 w-3.5 shrink-0 rounded accent-blue-900"
+            />
+            <span
+              className={`flex-1 ${
+                task.default_note_done
+                  ? 'text-slate-400 line-through'
+                  : 'font-medium text-blue-950/85'
+              }`}
+            >
+              {task.default_note}
+            </span>
+          </label>
+        )}
+
+        {/* Photo Proof Thumbnail & Saved Daily Log Note Preview */}
         {(log?.photo || (log?.note && !isEditingNote)) && (
           <div className="mt-2.5 flex items-start gap-2">
             {log?.photo && (
@@ -491,6 +520,89 @@ export const TodayView: React.FC<TodayViewProps> = ({
             style={{ width: `${overallPercent}%` }}
           />
         </div>
+      </div>
+
+      {/* Daily Note Card (Ghi chú cho hôm nay) */}
+      <div className="rounded-[22px] border border-pink-100 bg-white p-3.5 shadow-[0_4px_18px_-6px_rgba(244,114,182,0.12)]">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs font-extrabold text-blue-900">
+            <GIcon name="edit_note" size={17} className="text-pink-500" />
+            <span>Ghi chú cho {formatShortDate(selectedDate).toLowerCase()}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setDailyNoteDraft(dailyNote?.text || '');
+              setIsEditingDailyNote((v) => !v);
+            }}
+            className="text-[11px] font-bold text-pink-500 hover:text-blue-900"
+          >
+            {isEditingDailyNote ? 'Đóng' : dailyNote?.text ? 'Sửa' : '+ Viết'}
+          </button>
+        </div>
+
+        {isEditingDailyNote ? (
+          <div className="mt-2 flex items-center gap-1.5">
+            <input
+              type="text"
+              autoFocus
+              value={dailyNoteDraft}
+              onChange={(e) => setDailyNoteDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  onSaveDailyNote(selectedDate, {
+                    text: dailyNoteDraft.trim(),
+                    done: dailyNote?.done ?? false,
+                  });
+                  setIsEditingDailyNote(false);
+                }
+              }}
+              placeholder="Nhắc nhở / ghi chú cho ngày này..."
+              className="flex-1 rounded-xl border border-pink-200 bg-pink-50/40 px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-900 focus:bg-white"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                onSaveDailyNote(selectedDate, {
+                  text: dailyNoteDraft.trim(),
+                  done: dailyNote?.done ?? false,
+                });
+                setIsEditingDailyNote(false);
+              }}
+              className="ios-press rounded-xl bg-blue-900 px-3 py-1.5 text-xs font-bold text-white"
+            >
+              Lưu
+            </button>
+          </div>
+        ) : dailyNote?.text ? (
+          <label className="mt-2 flex cursor-pointer items-start gap-2 rounded-xl bg-pink-50/60 px-3 py-2 text-xs">
+            <input
+              type="checkbox"
+              checked={dailyNote.done}
+              onChange={() =>
+                onSaveDailyNote(selectedDate, {
+                  text: dailyNote.text,
+                  done: !dailyNote.done,
+                })
+              }
+              className="mt-0.5 h-4 w-4 shrink-0 rounded accent-blue-900"
+            />
+            <span
+              className={`flex-1 leading-relaxed ${
+                dailyNote.done
+                  ? 'text-slate-400 line-through'
+                  : 'font-medium text-blue-950'
+              }`}
+            >
+              {dailyNote.text}
+            </span>
+          </label>
+        ) : (
+          <p className="mt-1 text-[11px] text-slate-400">
+            Chưa có ghi chú nào cho ngày này.
+          </p>
+        )}
       </div>
 
       {/* Recurring Tasks */}

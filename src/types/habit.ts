@@ -16,8 +16,15 @@ export interface Task {
   target_value: number;
   target_period: TargetPeriod;
   unit: string;
+  default_note?: string;
+  default_note_done?: boolean;
   created_at: string;
   archived_at: string | null;
+}
+
+export interface DailyNote {
+  text: string;
+  done: boolean;
 }
 
 export interface TaskLog {

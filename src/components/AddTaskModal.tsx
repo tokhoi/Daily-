@@ -48,6 +48,10 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [unit, setUnit] = useState(
     editingTask?.target_type === 'count' ? editingTask.unit : 'ly'
   );
+  const [defaultNote, setDefaultNote] = useState(editingTask?.default_note ?? '');
+  const [defaultNoteDone, setDefaultNoteDone] = useState(
+    Boolean(editingTask?.default_note_done)
+  );
 
   const toggleDay = (day: number) => {
     setRecurrenceDays((prev) =>
@@ -77,6 +81,8 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
       target_value: targetType === 'boolean' ? 1 : Math.max(1, targetValue),
       target_period: 'day',
       unit: targetType === 'boolean' ? 'lần' : unit.trim() || 'lần',
+      default_note: defaultNote.trim(),
+      default_note_done: defaultNoteDone,
       created_at: editingTask?.created_at || `${selectedDate}T00:00:00.000Z`,
       archived_at: editingTask?.archived_at ?? null,
     };
@@ -258,6 +264,31 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   />
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Task Note + Done Checkbox */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600">
+              Ghi chú cho việc này (tùy chọn)
+            </label>
+            <input
+              type="text"
+              value={defaultNote}
+              onChange={(e) => setDefaultNote(e.target.value)}
+              placeholder="VD: Mang bình nước 500ml, đọc chương 4..."
+              className="mt-1.5 w-full rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs text-[#231926] outline-none transition focus:border-blue-900 focus:bg-white"
+            />
+            {defaultNote.trim() && (
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-blue-900">
+                <input
+                  type="checkbox"
+                  checked={defaultNoteDone}
+                  onChange={(e) => setDefaultNoteDone(e.target.checked)}
+                  className="h-4 w-4 rounded border-pink-300 accent-blue-900"
+                />
+                <span>Đánh dấu ghi chú đã làm xong</span>
+              </label>
             )}
           </div>
 
