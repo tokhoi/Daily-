@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AddTaskModal } from './components/AddTaskModal';
+import { Bear3DStudio } from './components/Bear3DStudio';
+import { CoupleView } from './components/CoupleView';
 import { GIcon } from './components/GIcon';
 import { SettingsView } from './components/SettingsView';
 import { SummaryView } from './components/SummaryView';
@@ -11,6 +13,11 @@ import {
   WelcomeOverlayModal,
 } from './components/JellycatMascot';
 import { PhotoCheckModal } from './components/PhotoCheckModal';
+import {
+  createDefaultCoupleProfile,
+  createMockNudges,
+  createMockPartnerCheckins,
+} from './data/coupleSeed';
 import { createSeedData } from './data/seedData';
 import {
   TRANSLATIONS,
@@ -29,7 +36,16 @@ import {
   syncLogToSheets,
   syncTaskToSheets,
 } from './services/sheetsSync';
-import type { AppTab, DailyNote, SyncState, Task, TaskLog } from './types/habit';
+import type {
+  AppTab,
+  CoupleNudge,
+  CoupleProfile,
+  DailyNote,
+  PartnerCheckin,
+  SyncState,
+  Task,
+  TaskLog,
+} from './types/habit';
 import { getLogCompletionRatio, isTaskScheduledForDate, toDateKey } from './utils/dateUtils';
 
 export function App() {
@@ -77,6 +93,36 @@ export function App() {
     loadDailyNotes()
   );
 
+  const [coupleProfile, setCoupleProfile] = useState<CoupleProfile>(() => {
+    try {
+      const raw = localStorage.getItem('daily_miniapp_couple_profile_v1');
+      if (raw) return JSON.parse(raw) as CoupleProfile;
+    } catch {
+      // ignore
+    }
+    return createDefaultCoupleProfile();
+  });
+
+  const [partnerCheckins, setPartnerCheckins] = useState<PartnerCheckin[]>(() => {
+    try {
+      const raw = localStorage.getItem('daily_miniapp_couple_checkins_v1');
+      if (raw) return JSON.parse(raw) as PartnerCheckin[];
+    } catch {
+      // ignore
+    }
+    return createMockPartnerCheckins();
+  });
+
+  const [nudges, setNudges] = useState<CoupleNudge[]>(() => {
+    try {
+      const raw = localStorage.getItem('daily_miniapp_couple_nudges_v1');
+      if (raw) return JSON.parse(raw) as CoupleNudge[];
+    } catch {
+      // ignore
+    }
+    return createMockNudges();
+  });
+
   const [sheetUrl, setSheetUrl] = useState<string>(() => getSavedSheetUrl());
   const [syncState, setSyncState] = useState<SyncState>(() =>
     getSavedSheetUrl() ? 'synced' : 'local'
@@ -90,6 +136,18 @@ export function App() {
   useEffect(() => {
     saveDailyNotes(dailyNotes);
   }, [dailyNotes]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_miniapp_couple_profile_v1', JSON.stringify(coupleProfile));
+  }, [coupleProfile]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_miniapp_couple_checkins_v1', JSON.stringify(partnerCheckins));
+  }, [partnerCheckins]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_miniapp_couple_nudges_v1', JSON.stringify(nudges));
+  }, [nudges]);
 
   useEffect(() => {
     localStorage.setItem('daily_miniapp_lang_v1', lang);
@@ -398,14 +456,50 @@ export function App() {
   };
 
   const todayKey = toDateKey(new Date());
-  const pendingTodayTasks = tasks.filter((t) => {
-    if (!isTaskScheduledForDate(t, todayKey)) return false;
+  const scheduledTodayTasks = tasks.filter((t) => isTaskScheduledForDate(t, todayKey));
+  const pendingTodayTasks = scheduledTodayTasks.filter((t) => {
     const log = logs.find((l) => l.task_id === t.id && l.log_date === todayKey);
     if (log?.status === 'skipped') return false;
     return getLogCompletionRatio(t, log) < 1;
   });
 
-  const activeTabIndex = activeTab === 'today' ? 0 : activeTab === 'summary' ? 1 : 2;
+  const activeScheduledToday = scheduledTodayTasks.filter((t) => {
+    const log = logs.find((l) => l.task_id === t.id && l.log_date === todayKey);
+    return log?.status !== 'skipped';
+  });
+  const myPercent =
+    activeScheduledToday.length > 0
+      ? Math.round(
+          (activeScheduledToday.reduce((acc, task) => {
+            const log = logs.find((l) => l.task_id === task.id && l.log_date === todayKey);
+            return acc + getLogCompletionRatio(task, log);
+          }, 0) /
+            activeScheduledToday.length) *
+            100
+        )
+      : 0;
+
+  const handleReactCheckin = (id: string, reaction: 'heart' | 'clap' | 'fire') => {
+    setPartnerCheckins((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, reaction } : item))
+    );
+  };
+
+  const handleSendNudge = (message: string) => {
+    const newNudge: CoupleNudge = {
+      id: `nudge_${Date.now()}`,
+      from: 'me',
+      message,
+      createdAt: new Date().toLocaleTimeString('vi-VN', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+    };
+    setNudges((prev) => [newNudge, ...prev].slice(0, 12));
+  };
+
+  const tabOrder: AppTab[] = ['today', 'couple', 'bear3d', 'summary', 'settings'];
+  const activeTabIndex = Math.max(0, tabOrder.indexOf(activeTab));
 
   return (
     <div
@@ -426,6 +520,8 @@ export function App() {
             </h1>
             <p className="text-[11px] font-medium text-slate-400">
               {activeTab === 'today' && t.appSubtitleToday}
+              {activeTab === 'couple' && 'Ghép đôi, quẹt ảnh & tương tác'}
+              {activeTab === 'bear3d' && 'Gấu 3D tương tác (Duolingo-style)'}
               {activeTab === 'summary' && t.appSubtitleSummary}
               {activeTab === 'settings' && t.appSubtitleSettings}
             </p>
@@ -537,6 +633,21 @@ export function App() {
             />
           )}
 
+          {activeTab === 'couple' && (
+            <CoupleView
+              key="couple-tab"
+              myPercent={myPercent}
+              profile={coupleProfile}
+              partnerCheckins={partnerCheckins}
+              nudges={nudges}
+              onUpdateProfile={setCoupleProfile}
+              onReactCheckin={handleReactCheckin}
+              onSendNudge={handleSendNudge}
+            />
+          )}
+
+          {activeTab === 'bear3d' && <Bear3DStudio key="bear3d-tab" />}
+
           {activeTab === 'summary' && (
             <SummaryView key="summary-tab" t={t} tasks={tasks} logs={logs} />
           )}
@@ -564,17 +675,19 @@ export function App() {
         </main>
 
         {/* Floating iOS Glassmorphic Bottom Navigation */}
-        <div className="pointer-events-none fixed bottom-3 z-30 flex w-full max-w-[430px] justify-center px-4">
-          <nav className="pointer-events-auto relative grid w-full grid-cols-3 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
+        <div className="pointer-events-none fixed bottom-3 z-30 flex w-full max-w-[430px] justify-center px-3">
+          <nav className="pointer-events-auto relative grid w-full grid-cols-5 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
             {/* Sliding active background pill */}
             <div
-              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/3)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/5)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
               style={{ transform: `translateX(${activeTabIndex * 100}%)` }}
             />
 
             {(
               [
                 { id: 'today', label: t.navToday, icon: 'check_circle' },
+                { id: 'couple', label: 'Couple', icon: 'favorite' },
+                { id: 'bear3d', label: 'Gấu 3D', icon: 'pets' },
                 { id: 'summary', label: t.navSummary, icon: 'bar_chart' },
                 { id: 'settings', label: t.navSettings, icon: 'settings' },
               ] as { id: AppTab; label: string; icon: string }[]
@@ -585,7 +698,7 @@ export function App() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`ios-press relative z-10 flex flex-col items-center gap-0.5 rounded-[20px] py-1.5 text-[11px] font-bold transition-colors duration-300 ${
+                  className={`ios-press relative z-10 flex flex-col items-center gap-0.5 rounded-[20px] py-1.5 text-[10px] font-bold transition-colors duration-300 ${
                     active ? 'text-blue-900' : 'text-slate-400 hover:text-pink-400'
                   }`}
                 >

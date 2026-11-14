@@ -25,6 +25,34 @@ export interface Task {
 export interface DailyNote {
   text: string;
   done: boolean;
+  sharedWithPartner?: boolean;
+}
+
+export interface CoupleProfile {
+  myName: string;
+  myCode: string;
+  partnerName: string;
+  partnerCode: string;
+  isPaired: boolean;
+  bearStyle: 'pink' | 'blue';
+}
+
+export interface PartnerCheckin {
+  id: string;
+  taskTitle: string;
+  emoji: string;
+  color: string;
+  completedAt: string;
+  note?: string;
+  photo: string;
+  reaction?: 'heart' | 'clap' | 'fire' | null;
+}
+
+export interface CoupleNudge {
+  id: string;
+  from: 'me' | 'partner';
+  message: string;
+  createdAt: string;
 }
 
 export interface TaskLog {
@@ -43,5 +71,5 @@ export interface TaskLog {
 
 export type SyncState = 'local' | 'syncing' | 'synced' | 'error';
 
-export type AppTab = 'today' | 'summary' | 'settings';
+export type AppTab = 'today' | 'couple' | 'bear3d' | 'summary' | 'settings';
 export type SummaryPeriod = 'week' | 'month' | 'year';
