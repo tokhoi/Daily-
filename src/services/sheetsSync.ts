@@ -106,6 +106,24 @@ function normalizeDateField(val: unknown): string {
   return str;
 }
 
+function normalizeTimeField(val: unknown): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  const hhmm = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(str);
+  if (hhmm) {
+    return `${hhmm[1].padStart(2, '0')}:${hhmm[2]}`;
+  }
+  const d = new Date(str);
+  if (!Number.isNaN(d.getTime())) {
+    return d.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+  return str;
+}
+
 export async function fetchFromSheets(
   scriptUrl: string
 ): Promise<{
@@ -184,7 +202,7 @@ export async function fetchFromSheets(
       sender_id: m.sender_id ? String(m.sender_id) : undefined,
       room_code: m.room_code ? String(m.room_code) : undefined,
       text: String(m.text),
-      createdAt: m.createdAt ? String(m.createdAt) : '',
+      createdAt: normalizeTimeField(m.createdAt),
     }));
 
   const coupleNudges: CoupleNudge[] = rawNudges
@@ -195,7 +213,7 @@ export async function fetchFromSheets(
       sender_id: n.sender_id ? String(n.sender_id) : undefined,
       room_code: n.room_code ? String(n.room_code) : undefined,
       message: String(n.message),
-      createdAt: n.createdAt ? String(n.createdAt) : '',
+      createdAt: normalizeTimeField(n.createdAt),
     }));
 
   const partnerCheckins: PartnerCheckin[] = rawCheckins
@@ -205,7 +223,7 @@ export async function fetchFromSheets(
       taskTitle: String(c.taskTitle),
       emoji: c.emoji ? String(c.emoji) : 'favorite',
       color: c.color ? String(c.color) : '#F472B6',
-      completedAt: c.completedAt ? String(c.completedAt) : '',
+      completedAt: normalizeTimeField(c.completedAt),
       note: c.note ? String(c.note) : undefined,
       photo: c.photo ? String(c.photo) : '',
       reaction:
