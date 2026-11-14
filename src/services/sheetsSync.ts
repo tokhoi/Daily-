@@ -109,6 +109,7 @@ export async function fetchFromSheets(
   tasks: Task[];
   logs: TaskLog[];
   users?: AppUser[];
+  coupleProfiles?: CoupleProfile[];
   coupleChat?: CoupleChatMessage[];
   coupleNudges?: CoupleNudge[];
   partnerCheckins?: PartnerCheckin[];
@@ -121,6 +122,7 @@ export async function fetchFromSheets(
   const rawTasks = Array.isArray(data.tasks) ? data.tasks : [];
   const rawLogs = Array.isArray(data.logs) ? data.logs : [];
   const rawUsers = Array.isArray(data.users) ? data.users : [];
+  const rawCoupleProfiles = Array.isArray(data.coupleProfiles) ? data.coupleProfiles : [];
   const rawChat = Array.isArray(data.coupleChat) ? data.coupleChat : [];
   const rawNudges = Array.isArray(data.coupleNudges) ? data.coupleNudges : [];
   const rawCheckins = Array.isArray(data.partnerCheckins) ? data.partnerCheckins : [];
@@ -209,10 +211,22 @@ export async function fetchFromSheets(
           : null,
     }));
 
+  const coupleProfiles: CoupleProfile[] = rawCoupleProfiles
+    .filter((p: Partial<CoupleProfile>) => p && (p.myCode || p.myName))
+    .map((p: Partial<CoupleProfile>) => ({
+      myName: p.myName ? String(p.myName) : 'Tô Khôi',
+      myCode: p.myCode ? String(p.myCode).toUpperCase() : '',
+      partnerName: p.partnerName ? String(p.partnerName) : 'Gia Hân',
+      partnerCode: p.partnerCode ? String(p.partnerCode).toUpperCase() : '',
+      isPaired: p.isPaired === true || String(p.isPaired).toLowerCase() === 'true',
+      bearStyle: p.bearStyle === 'blue' ? 'blue' : 'pink',
+    }));
+
   return {
     tasks,
     logs,
     users: users.length > 0 ? users : undefined,
+    coupleProfiles: coupleProfiles.length > 0 ? coupleProfiles : undefined,
     coupleChat: coupleChat.length > 0 ? coupleChat : undefined,
     coupleNudges: coupleNudges.length > 0 ? coupleNudges : undefined,
     partnerCheckins: partnerCheckins.length > 0 ? partnerCheckins : undefined,

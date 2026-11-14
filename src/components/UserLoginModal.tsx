@@ -172,12 +172,6 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
                     : 'Chưa liên kết'}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-slate-400">Lưu trữ dữ liệu</span>
-                <span className="font-bold text-blue-950">
-                  {sheetUrl ? 'Google Sheets (Real-time)' : 'Thiết bị hiện tại'}
-                </span>
-              </div>
             </div>
 
             <div className="flex gap-2 pt-1">

@@ -259,7 +259,11 @@ export function App() {
     detectWeather(10.8231, 106.6297);
   }, []);
 
-  const handlePullFromSheets = async (url = sheetUrl, allowEmpty = false) => {
+  const handlePullFromSheets = async (
+    url = sheetUrl,
+    allowEmpty = false,
+    userOverride?: AppUser | null
+  ) => {
     if (!url) return;
     setSyncState('syncing');
     setLastSyncError(null);
@@ -270,8 +274,61 @@ export function App() {
         setLogs(remote.logs);
       }
       if (remote.users) setRemoteUsers(remote.users);
+
+      const activeUser = userOverride !== undefined ? userOverride : currentUser;
+      const serverUser =
+        activeUser && remote.users
+          ? remote.users.find((u) => u.user_id === activeUser.user_id)
+          : undefined;
+      const mergedUser =
+        activeUser && serverUser ? { ...activeUser, ...serverUser } : activeUser;
+
+      if (mergedUser && serverUser) {
+        if (
+          mergedUser.partner_id !== activeUser?.partner_id ||
+          mergedUser.room_code !== activeUser?.room_code
+        ) {
+          saveCurrentUser(mergedUser);
+          setCurrentUser(mergedUser);
+        }
+      }
+
+      const myCodeUpper = (mergedUser?.user_id || coupleProfile.myCode || '').toUpperCase();
+      const serverProfile = remote.coupleProfiles?.find(
+        (p) =>
+          (myCodeUpper && p.myCode.toUpperCase() === myCodeUpper) ||
+          (mergedUser?.room_code && p.partnerCode.toUpperCase() === mergedUser.room_code.toUpperCase())
+      );
+      const partnerUser =
+        mergedUser?.partner_id && remote.users
+          ? remote.users.find((u) => u.user_id === mergedUser.partner_id)
+          : undefined;
+
+      if (
+        mergedUser &&
+        (mergedUser.room_code || mergedUser.partner_id || serverProfile?.isPaired)
+      ) {
+        setCoupleProfile((prev) => ({
+          ...prev,
+          myName: mergedUser.display_name || prev.myName,
+          myCode: myCodeUpper || prev.myCode,
+          partnerCode: (
+            mergedUser.room_code ||
+            serverProfile?.partnerCode ||
+            prev.partnerCode
+          ).toUpperCase(),
+          partnerName:
+            partnerUser?.display_name ||
+            serverProfile?.partnerName ||
+            mergedUser.partner_id ||
+            prev.partnerName,
+          isPaired: true,
+        }));
+      }
+
       const activeRoom = (
-        currentUser?.room_code ||
+        mergedUser?.room_code ||
+        serverProfile?.partnerCode ||
         coupleProfile.partnerCode ||
         coupleProfile.myCode ||
         ''
@@ -284,8 +341,8 @@ export function App() {
           filteredChat.map((m) => ({
             ...m,
             sender:
-              m.sender_id && currentUser
-                ? m.sender_id === currentUser.user_id
+              m.sender_id && mergedUser
+                ? m.sender_id === mergedUser.user_id
                   ? 'me'
                   : 'partner'
                 : m.sender,
@@ -300,8 +357,8 @@ export function App() {
           filteredNudges.map((n) => ({
             ...n,
             from:
-              n.sender_id && currentUser
-                ? n.sender_id === currentUser.user_id
+              n.sender_id && mergedUser
+                ? n.sender_id === mergedUser.user_id
                   ? 'me'
                   : 'partner'
                 : n.from,
@@ -578,25 +635,31 @@ export function App() {
     saveCurrentUser(user);
     setCurrentUser(user);
     setShowUserModal(false);
+    const hasServerPair = Boolean(user.room_code || user.partner_id);
     setCoupleProfile((prev) => ({
       ...prev,
       myName: user.display_name,
       myCode: user.user_id.toUpperCase(),
-      partnerCode: (user.room_code || prev.partnerCode).toUpperCase(),
+      partnerCode: (user.room_code || (hasServerPair ? prev.partnerCode : '')).toUpperCase(),
       partnerName:
         remoteUsers.find((u) => u.user_id === user.partner_id)?.display_name ||
         user.partner_id ||
         prev.partnerName,
+      isPaired: hasServerPair,
     }));
     setRemoteUsers((prev) => {
       const idx = prev.findIndex((u) => u.user_id === user.user_id);
       return idx >= 0 ? prev.map((u, i) => (i === idx ? user : u)) : [...prev, user];
     });
+    if (sheetUrl) {
+      handlePullFromSheets(sheetUrl, false, user);
+    }
   };
 
   const handleLogoutUser = () => {
     clearCurrentUser();
     setCurrentUser(null);
+    setCoupleProfile(createDefaultCoupleProfile());
     setShowUserModal(true);
   };
 
@@ -752,6 +815,11 @@ export function App() {
       : undefined;
   const realPartnerTodayPercent =
     realPartnerWeekly !== undefined ? realPartnerWeekly[realPartnerWeekly.length - 1] : undefined;
+
+  useEffect(() => {
+    if (!sheetUrl) return;
+    handlePullFromSheets(sheetUrl);
+  }, []);
 
   useEffect(() => {
     if (!sheetUrl || !currentUser || !coupleProfile.isPaired) return;
