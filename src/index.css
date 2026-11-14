@@ -273,3 +273,101 @@
   transform-origin: center bottom;
   animation: earWiggle 1.8s ease-in-out infinite;
 }
+
+/* Smooth Auto / Manual Dark Mode */
+.theme-dark {
+  background-color: #0b1120 !important;
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .miniapp-shell {
+  background-color: #0f172a !important;
+  box-shadow: 0 0 50px -12px rgba(244, 114, 182, 0.16) !important;
+}
+
+.theme-dark header,
+.theme-dark nav {
+  background-color: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(244, 114, 182, 0.18) !important;
+}
+
+.theme-dark .bg-white {
+  background-color: #162033 !important;
+}
+
+.theme-dark .bg-white\/80,
+.theme-dark .bg-white\/85,
+.theme-dark .bg-white\/90 {
+  background-color: rgba(22, 32, 51, 0.88) !important;
+}
+
+.theme-dark .border-pink-100,
+.theme-dark .border-pink-100\/80,
+.theme-dark .border-pink-100\/90,
+.theme-dark .border-pink-200,
+.theme-dark .border-pink-200\/80 {
+  border-color: rgba(244, 114, 182, 0.2) !important;
+}
+
+.theme-dark .bg-pink-50,
+.theme-dark .bg-pink-50\/40,
+.theme-dark .bg-pink-50\/50,
+.theme-dark .bg-pink-50\/60,
+.theme-dark .bg-pink-50\/70,
+.theme-dark .bg-pink-50\/80 {
+  background-color: rgba(244, 114, 182, 0.1) !important;
+}
+
+.theme-dark .bg-pink-100,
+.theme-dark .bg-pink-100\/70,
+.theme-dark .bg-pink-100\/80,
+.theme-dark .bg-pink-100\/90 {
+  background-color: rgba(244, 114, 182, 0.18) !important;
+}
+
+.theme-dark .bg-blue-50\/60 {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+}
+
+.theme-dark .text-blue-950,
+.theme-dark .text-blue-950\/80,
+.theme-dark .text-blue-950\/85,
+.theme-dark .text-\[\#231926\],
+.theme-dark .text-\[\#1E293B\],
+.theme-dark .text-slate-900,
+.theme-dark .text-slate-800,
+.theme-dark .text-slate-700 {
+  color: #f1f5f9 !important;
+}
+
+.theme-dark .text-blue-900 {
+  color: #93c5fd !important;
+}
+
+.theme-dark .text-slate-600,
+.theme-dark .text-slate-500 {
+  color: #94a3b8 !important;
+}
+
+.theme-dark .from-white {
+  --tw-gradient-from: #162033 !important;
+}
+
+.theme-dark .via-pink-50\/40,
+.theme-dark .via-pink-50\/50,
+.theme-dark .via-pink-50\/60,
+.theme-dark .via-white {
+  --tw-gradient-via: #1a243b !important;
+}
+
+.theme-dark .to-white,
+.theme-dark .to-blue-50\/20,
+.theme-dark .to-blue-50\/25,
+.theme-dark .to-blue-50\/40 {
+  --tw-gradient-to: #162033 !important;
+}
+
+.theme-dark input,
+.theme-dark textarea {
+  color: #f8fafc !important;
+}

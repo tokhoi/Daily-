@@ -13,6 +13,11 @@ import {
 import { PhotoCheckModal } from './components/PhotoCheckModal';
 import { createSeedData } from './data/seedData';
 import {
+  TRANSLATIONS,
+  type AppLang,
+  type ThemeMode,
+} from './i18n/translations';
+import {
   bulkSyncToSheets,
   fetchFromSheets,
   getSavedSheetUrl,
@@ -33,9 +38,17 @@ export function App() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [weatherMode, setWeatherMode] = useState<WeatherMode>('sakura');
-  const [weatherTip, setWeatherTip] = useState<string>(
-    'Ngoài trời đang nắng — ra đường nhớ mặc áo khoác và bôi kem chống nắng nhé!'
-  );
+  const [weatherKind, setWeatherKind] = useState<'rain' | 'cloudy' | 'sunny'>('sunny');
+  const [weatherTemp, setWeatherTemp] = useState<string>('');
+  const [isDayRemote, setIsDayRemote] = useState<boolean | null>(null);
+  const [lang, setLang] = useState<AppLang>(() => {
+    const saved = localStorage.getItem('daily_miniapp_lang_v1');
+    return saved === 'en' || saved === 'zh' ? saved : 'vi';
+  });
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
+    const saved = localStorage.getItem('daily_miniapp_theme_v1');
+    return saved === 'light' || saved === 'dark' ? saved : 'auto';
+  });
   const [celebrationCount, setCelebrationCount] = useState<number | null>(null);
   const [pendingPhotoCheck, setPendingPhotoCheck] = useState<{
     task: Task;
@@ -79,6 +92,33 @@ export function App() {
   }, [dailyNotes]);
 
   useEffect(() => {
+    localStorage.setItem('daily_miniapp_lang_v1', lang);
+  }, [lang]);
+
+  useEffect(() => {
+    localStorage.setItem('daily_miniapp_theme_v1', themeMode);
+  }, [themeMode]);
+
+  const hour = new Date().getHours();
+  const isNightByClock = hour >= 18 || hour < 6;
+  const isDark =
+    themeMode === 'dark'
+      ? true
+      : themeMode === 'light'
+        ? false
+        : isDayRemote !== null
+          ? !isDayRemote || isNightByClock
+          : isNightByClock;
+
+  const t = TRANSLATIONS[lang];
+  const weatherTip =
+    weatherKind === 'rain'
+      ? t.tipRain(weatherTemp)
+      : weatherKind === 'cloudy'
+        ? t.tipCloudy(weatherTemp)
+        : t.tipSunny(weatherTemp);
+
+  useEffect(() => {
     if (!sheetUrl) return;
     handlePullFromSheets(sheetUrl);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -89,13 +129,17 @@ export function App() {
     const detectWeather = async (lat: number, lon: number) => {
       try {
         const res = await fetch(
-          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,temperature_2m`
+          `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=weather_code,temperature_2m,is_day`
         );
         if (!res.ok) return;
         const json = await res.json();
         const code = Number(json?.current?.weather_code);
         const temp = json?.current?.temperature_2m;
         const tempText = typeof temp === 'number' ? ` (${Math.round(temp)}°C)` : '';
+        setWeatherTemp(tempText);
+        if (typeof json?.current?.is_day === 'number') {
+          setIsDayRemote(json.current.is_day === 1);
+        }
 
         if (
           (code >= 51 && code <= 67) ||
@@ -103,19 +147,13 @@ export function App() {
           (code >= 95 && code <= 99)
         ) {
           setWeatherMode('rain');
-          setWeatherTip(
-            `Ngoài trời đang mưa${tempText} — ra đường nhớ mặc áo mưa hoặc mang ô nhé!`
-          );
+          setWeatherKind('rain');
         } else if (code >= 45 && code <= 48) {
           setWeatherMode('sparkle');
-          setWeatherTip(
-            `Trời hơi âm u${tempText} — ra đường nhớ mang theo áo khoác mỏng hoặc ô phòng hờ nhé!`
-          );
+          setWeatherKind('cloudy');
         } else {
           setWeatherMode('sakura');
-          setWeatherTip(
-            `Ngoài trời đang nắng${tempText} — ra đường nhớ mặc áo khoác và bôi kem chống nắng nhé!`
-          );
+          setWeatherKind('sunny');
         }
       } catch {
         // Keep default sakura on network failure
@@ -370,9 +408,13 @@ export function App() {
   const activeTabIndex = activeTab === 'today' ? 0 : activeTab === 'summary' ? 1 : 2;
 
   return (
-    <div className="flex min-h-screen justify-center bg-[#FFF5F8]">
+    <div
+      className={`flex min-h-screen justify-center transition-colors duration-500 ${
+        isDark ? 'theme-dark bg-[#0b1120]' : 'bg-[#FFF5F8]'
+      }`}
+    >
       {/* Mobile Miniapp Frame */}
-      <div className="relative flex min-h-screen w-full max-w-[430px] flex-col overflow-hidden bg-[#FFFBFD] shadow-[0_0_50px_-12px_rgba(30,58,138,0.14)]">
+      <div className="miniapp-shell relative flex min-h-screen w-full max-w-[430px] flex-col overflow-hidden bg-[#FFFBFD] shadow-[0_0_50px_-12px_rgba(30,58,138,0.14)] transition-colors duration-500">
         {/* Weather-synced Falling Animation Overlay */}
         <WeatherOverlay mode={weatherMode} />
 
@@ -383,9 +425,9 @@ export function App() {
               DailyLog
             </h1>
             <p className="text-[11px] font-medium text-slate-400">
-              {activeTab === 'today' && 'Ghi nhận việc hằng ngày'}
-              {activeTab === 'summary' && 'Tổng kết tuần • tháng • năm'}
-              {activeTab === 'settings' && 'Kết nối Google Sheets'}
+              {activeTab === 'today' && t.appSubtitleToday}
+              {activeTab === 'summary' && t.appSubtitleSummary}
+              {activeTab === 'settings' && t.appSubtitleSettings}
             </p>
           </div>
 
@@ -395,7 +437,7 @@ export function App() {
               type="button"
               onClick={cycleWeatherMode}
               className="ios-press flex items-center gap-1 rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
-              title="Đổi hiệu ứng thời tiết"
+              title="Weather Effect"
             >
               <GIcon
                 name={
@@ -409,10 +451,10 @@ export function App() {
                 className={weatherMode === 'off' ? 'opacity-40' : 'text-pink-400'}
               />
               <span>
-                {weatherMode === 'sakura' && 'Hoa rơi'}
-                {weatherMode === 'rain' && 'Mưa rơi'}
-                {weatherMode === 'sparkle' && 'Lấp lánh'}
-                {weatherMode === 'off' && 'Tắt'}
+                {weatherMode === 'sakura' && t.weatherSakura}
+                {weatherMode === 'rain' && t.weatherRain}
+                {weatherMode === 'sparkle' && t.weatherSparkle}
+                {weatherMode === 'off' && t.weatherOff}
               </span>
             </button>
 
@@ -469,6 +511,7 @@ export function App() {
           {activeTab === 'today' && (
             <TodayView
               key="today-tab"
+              t={t}
               selectedDate={selectedDate}
               onSelectDate={setSelectedDate}
               tasks={tasks}
@@ -495,17 +538,23 @@ export function App() {
           )}
 
           {activeTab === 'summary' && (
-            <SummaryView key="summary-tab" tasks={tasks} logs={logs} />
+            <SummaryView key="summary-tab" t={t} tasks={tasks} logs={logs} />
           )}
 
           {activeTab === 'settings' && (
             <SettingsView
               key="settings-tab"
+              t={t}
+              lang={lang}
+              themeMode={themeMode}
+              isDark={isDark}
               sheetUrl={sheetUrl}
               syncState={syncState}
               lastSyncError={lastSyncError}
               tasks={tasks}
               logs={logs}
+              onChangeLang={setLang}
+              onChangeTheme={setThemeMode}
               onSaveSheetUrl={handleSaveSheetUrl}
               onPullFromSheets={() => handlePullFromSheets(sheetUrl, true)}
               onPushAllToSheets={handlePushAllToSheets}
@@ -525,9 +574,9 @@ export function App() {
 
             {(
               [
-                { id: 'today', label: 'Hôm nay', icon: 'check_circle' },
-                { id: 'summary', label: 'Tổng kết', icon: 'bar_chart' },
-                { id: 'settings', label: 'Cài đặt', icon: 'settings' },
+                { id: 'today', label: t.navToday, icon: 'check_circle' },
+                { id: 'summary', label: t.navSummary, icon: 'bar_chart' },
+                { id: 'settings', label: t.navSettings, icon: 'settings' },
               ] as { id: AppTab; label: string; icon: string }[]
             ).map((tab) => {
               const active = activeTab === tab.id;
@@ -551,6 +600,7 @@ export function App() {
         {/* Add / Edit Task Modal */}
         {isAddModalOpen && (
           <AddTaskModal
+            t={t}
             selectedDate={selectedDate}
             editingTask={editingTask}
             onClose={() => {
@@ -564,6 +614,7 @@ export function App() {
         {/* Photo Confirmation Modal on Task Completion */}
         {pendingPhotoCheck && (
           <PhotoCheckModal
+            t={t}
             task={pendingPhotoCheck.task}
             onConfirm={handleConfirmPhotoCheck}
             onCancel={() => setPendingPhotoCheck(null)}
@@ -573,6 +624,7 @@ export function App() {
         {/* Step 1: Setup Google Sheet URL Overlay if not configured */}
         {showSetupOverlay && (
           <SetupSheetOverlayModal
+            t={t}
             onSaveUrl={(url) => {
               handleSaveSheetUrl(url);
               setShowSetupOverlay(false);
@@ -588,6 +640,7 @@ export function App() {
         {/* Step 2: Welcome Task Reminder + Daily Note Overlay */}
         {!showSetupOverlay && showWelcomeOverlay && (
           <WelcomeOverlayModal
+            t={t}
             pendingTasks={pendingTodayTasks}
             initialDailyNote={dailyNotes[todayKey]?.text || ''}
             weatherTip={weatherTip}
@@ -618,6 +671,7 @@ export function App() {
         {/* Jellycat Clapping Celebration Modal when 100% completed */}
         {celebrationCount !== null && (
           <CelebrationMascotModal
+            t={t}
             completedCount={celebrationCount}
             onClose={() => setCelebrationCount(null)}
           />

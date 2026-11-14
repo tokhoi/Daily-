@@ -1,8 +1,10 @@
 import React, { useRef, useState } from 'react';
+import type { Translations } from '../i18n/translations';
 import type { Task } from '../types/habit';
 import { GIcon } from './GIcon';
 
 interface PhotoCheckModalProps {
+  t: Translations;
   task: Task;
   onConfirm: (photoDataUrl: string) => void;
   onCancel: () => void;
@@ -34,6 +36,7 @@ function compressImage(file: File, maxWidth = 360, quality = 0.65): Promise<stri
 }
 
 export const PhotoCheckModal: React.FC<PhotoCheckModalProps> = ({
+  t,
   task,
   onConfirm,
   onCancel,
@@ -70,10 +73,10 @@ export const PhotoCheckModal: React.FC<PhotoCheckModalProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-base font-extrabold text-blue-950">
-              Chụp ảnh xác nhận
+              {t.photoTitle}
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Việc: <strong className="text-blue-900">{task.title}</strong>
+              {t.photoTaskLabel} <strong className="text-blue-900">{task.title}</strong>
             </p>
           </div>
           <button
@@ -108,7 +111,7 @@ export const PhotoCheckModal: React.FC<PhotoCheckModalProps> = ({
                 className="ios-press absolute right-2.5 bottom-2.5 flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-bold text-blue-900 shadow-sm backdrop-blur-sm"
               >
                 <GIcon name="photo_camera" size={14} />
-                Chụp lại
+                {t.photoRetake}
               </button>
             </div>
           ) : (
@@ -121,10 +124,10 @@ export const PhotoCheckModal: React.FC<PhotoCheckModalProps> = ({
                 <GIcon name="photo_camera" size={26} />
               </div>
               <span className="text-xs font-bold">
-                {processing ? 'Đang xử lý ảnh...' : 'Mở Camera / Chọn ảnh xác nhận'}
+                {processing ? t.photoProcessing : t.photoPick}
               </span>
               <span className="text-[11px] text-slate-400">
-                Ảnh được nén gọn để lưu đồng bộ
+                {t.photoHint}
               </span>
             </button>
           )}
@@ -137,14 +140,14 @@ export const PhotoCheckModal: React.FC<PhotoCheckModalProps> = ({
             onClick={() => onConfirm(preview)}
             className="ios-press w-full rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20 disabled:opacity-40"
           >
-            Xác nhận hoàn thành
+            {t.photoConfirm}
           </button>
           <button
             type="button"
             onClick={onCancel}
             className="w-full py-2 text-center text-xs font-semibold text-slate-400 hover:text-slate-600"
           >
-            Hủy
+            {t.cancel}
           </button>
         </div>
       </div>

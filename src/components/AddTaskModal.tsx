@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { ICON_PRESETS, TASK_COLORS } from '../data/seedData';
+import type { Translations } from '../i18n/translations';
 import type { TargetType, Task } from '../types/habit';
 import { GIcon } from './GIcon';
 
 interface AddTaskModalProps {
+  t: Translations;
   selectedDate: string;
   editingTask?: Task | null;
   onClose: () => void;
@@ -21,6 +23,7 @@ const DAY_CHIPS = [
 ];
 
 export const AddTaskModal: React.FC<AddTaskModalProps> = ({
+  t,
   selectedDate,
   editingTask,
   onClose,
@@ -104,7 +107,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
         <div className="flex items-center justify-between">
           <h2 className="text-base font-extrabold text-[#231926]">
-            {isEdit ? 'Chỉnh sửa công việc' : 'Thêm việc mới'}
+            {isEdit ? t.modalEditTitle : t.modalAddTitle}
           </h2>
           <button
             type="button"
@@ -117,20 +120,20 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
           <div>
-            <label className="block text-xs font-bold text-slate-600">Tên công việc</label>
+            <label className="block text-xs font-bold text-slate-600">{t.taskNameLabel}</label>
             <input
               type="text"
               required
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="VD: Uống nước, Đọc sách, Gửi báo cáo..."
+              placeholder={t.taskNamePlaceholder}
               className="mt-1.5 w-full rounded-2xl border border-pink-100 bg-pink-50/40 px-4 py-3 text-sm text-[#231926] outline-none transition focus:border-pink-400 focus:bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600">Biểu tượng</label>
+            <label className="block text-xs font-bold text-slate-600">{t.iconLabel}</label>
             <div className="no-scrollbar mt-1.5 flex gap-2 overflow-x-auto pb-1">
               {ICON_PRESETS.map((ic) => {
                 const active = icon === ic;
@@ -153,7 +156,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600">Màu sắc</label>
+            <label className="block text-xs font-bold text-slate-600">{t.colorLabel}</label>
             <div className="mt-2 flex gap-2.5">
               {TASK_COLORS.map((c) => (
                 <button
@@ -171,7 +174,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600">Tần suất</label>
+            <label className="block text-xs font-bold text-slate-600">{t.frequencyLabel}</label>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-2xl bg-pink-50/80 p-1">
               <button
                 type="button"
@@ -180,7 +183,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   isRecurring ? 'bg-white text-pink-600 shadow-xs' : 'text-slate-500'
                 }`}
               >
-                Cố định (Lặp lại)
+                {t.freqRecurring}
               </button>
               <button
                 type="button"
@@ -189,13 +192,13 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   !isRecurring ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-500'
                 }`}
               >
-                Chỉ 1 ngày
+                {t.freqOneOff}
               </button>
             </div>
 
             {isRecurring && (
               <div className="mt-2.5 flex justify-between gap-1.5">
-                {DAY_CHIPS.map((d) => {
+                {DAY_CHIPS.map((d, idx) => {
                   const active = recurrenceDays.includes(d.value);
                   return (
                     <button
@@ -208,7 +211,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                           : 'bg-pink-50 text-pink-400 hover:bg-pink-100'
                       }`}
                     >
-                      {d.label}
+                      {t.weekdays[idx]}
                     </button>
                   );
                 })}
@@ -217,7 +220,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-600">Cách đo lường</label>
+            <label className="block text-xs font-bold text-slate-600">{t.measureLabel}</label>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-2xl bg-pink-50/80 p-1">
               <button
                 type="button"
@@ -228,7 +231,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                     : 'text-slate-500'
                 }`}
               >
-                Tick hoàn thành
+                {t.measureBool}
               </button>
               <button
                 type="button"
@@ -237,14 +240,14 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   targetType === 'count' ? 'bg-white text-purple-600 shadow-xs' : 'text-slate-500'
                 }`}
               >
-                Đếm số lượng
+                {t.measureCount}
               </button>
             </div>
 
             {targetType === 'count' && (
               <div className="mt-2.5 grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500">Mục tiêu / ngày</label>
+                  <label className="text-[11px] font-semibold text-slate-500">{t.targetPerDay}</label>
                   <input
                     type="number"
                     min={1}
@@ -254,7 +257,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] font-semibold text-slate-500">Đơn vị</label>
+                  <label className="text-[11px] font-semibold text-slate-500">{t.unitLabel}</label>
                   <input
                     type="text"
                     value={unit}
@@ -270,13 +273,13 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
           {/* Task Note + Done Checkbox */}
           <div>
             <label className="block text-xs font-bold text-slate-600">
-              Ghi chú cho việc này (tùy chọn)
+              {t.taskNoteLabel}
             </label>
             <input
               type="text"
               value={defaultNote}
               onChange={(e) => setDefaultNote(e.target.value)}
-              placeholder="VD: Mang bình nước 500ml, đọc chương 4..."
+              placeholder={t.taskNotePlaceholder}
               className="mt-1.5 w-full rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs text-[#231926] outline-none transition focus:border-blue-900 focus:bg-white"
             />
             {defaultNote.trim() && (
@@ -287,7 +290,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
                   onChange={(e) => setDefaultNoteDone(e.target.checked)}
                   className="h-4 w-4 rounded border-pink-300 accent-blue-900"
                 />
-                <span>Đánh dấu ghi chú đã làm xong</span>
+                <span>{t.taskNoteDoneLabel}</span>
               </label>
             )}
           </div>
@@ -296,7 +299,7 @@ export const AddTaskModal: React.FC<AddTaskModalProps> = ({
             type="submit"
             className="ios-press animate-gradient-flow w-full rounded-2xl bg-gradient-to-r from-pink-400 via-blue-800 to-blue-950 py-3.5 text-sm font-extrabold text-white shadow-md shadow-blue-900/20"
           >
-            {isEdit ? 'Cập nhật công việc' : 'Lưu công việc'}
+            {isEdit ? t.updateTaskBtn : t.saveTaskBtn}
           </button>
         </form>
       </div>

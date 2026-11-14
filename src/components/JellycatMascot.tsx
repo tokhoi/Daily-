@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import type { Translations } from '../i18n/translations';
 import type { Task } from '../types/habit';
 import { GIcon } from './GIcon';
 
@@ -92,11 +93,13 @@ export const JellycatPlushSvg: React.FC<PlushSvgProps> = ({
 };
 
 interface SetupSheetOverlayModalProps {
+  t: Translations;
   onSaveUrl: (url: string) => void;
   onSkip: () => void;
 }
 
 export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
+  t,
   onSaveUrl,
   onSkip,
 }) => {
@@ -116,13 +119,13 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
         </div>
 
         <span className="mt-1 inline-block rounded-full bg-pink-100 px-3 py-0.5 text-[11px] font-extrabold text-blue-900">
-          THIẾT LẬP BAN ĐẦU
+          {t.setupBadge}
         </span>
         <h3 className="mt-2 text-base font-extrabold text-blue-950">
-          Chưa có URL Google Sheets
+          {t.setupTitle}
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-slate-500">
-          Dán URL Google Apps Script của bạn vào đây để đồng bộ dữ liệu nhiều thiết bị nhé.
+          {t.setupDesc}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-4 space-y-2.5">
@@ -139,7 +142,7 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
             type="submit"
             className="ios-press w-full rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20"
           >
-            Lưu & Kết nối
+            {t.setupBtn}
           </button>
         </form>
 
@@ -148,7 +151,7 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
           onClick={onSkip}
           className="mt-2.5 w-full py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-600"
         >
-          Để sau, dùng tạm Local
+          {t.setupSkip}
         </button>
       </div>
     </div>
@@ -156,6 +159,7 @@ export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
 };
 
 interface WelcomeOverlayModalProps {
+  t: Translations;
   pendingTasks: Task[];
   initialDailyNote?: string;
   weatherTip?: string;
@@ -164,6 +168,7 @@ interface WelcomeOverlayModalProps {
 }
 
 export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
+  t,
   pendingTasks,
   initialDailyNote = '',
   weatherTip = '',
@@ -194,8 +199,8 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
           <JellycatPlushSvg size={96} clapping={false} />
           <h3 className="mt-2 text-base font-extrabold text-blue-950">
             {pendingTasks.length > 0
-              ? `Hôm nay còn ${pendingTasks.length} việc chưa xong nè`
-              : 'Chào ngày mới tốt lành!'}
+              ? t.welcomePending(pendingTasks.length)
+              : t.welcomeAllClear}
           </h3>
           {weatherTip && (
             <p className="mt-2 rounded-2xl border border-pink-100 bg-blue-50/60 px-3 py-2 text-[11px] font-semibold leading-relaxed text-blue-900">
@@ -206,18 +211,18 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
 
         {pendingTasks.length > 0 && (
           <ul className="mt-3 space-y-1.5 rounded-2xl border border-pink-100 bg-pink-50/50 p-3">
-            {pendingTasks.slice(0, 3).map((t) => (
+            {pendingTasks.slice(0, 3).map((taskItem) => (
               <li
-                key={t.id}
+                key={taskItem.id}
                 className="flex items-center gap-2 truncate text-xs font-semibold text-slate-700"
               >
                 <span className="h-2 w-2 shrink-0 rounded-full bg-pink-400" />
-                <span className="truncate">{t.title}</span>
+                <span className="truncate">{taskItem.title}</span>
               </li>
             ))}
             {pendingTasks.length > 3 && (
               <li className="text-[11px] font-bold text-pink-500">
-                +{pendingTasks.length - 3} việc khác...
+                {t.moreTasks(pendingTasks.length - 3)}
               </li>
             )}
           </ul>
@@ -226,13 +231,13 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
         {/* Daily Note Input */}
         <div className="mt-3.5 text-left">
           <label className="block text-[11px] font-bold text-blue-900">
-            Ghi chú cho hôm nay
+            {t.welcomeDailyNoteLabel}
           </label>
           <textarea
             rows={2}
             value={noteText}
             onChange={(e) => setNoteText(e.target.value)}
-            placeholder="Viết nhanh điều cần nhớ cho hôm nay..."
+            placeholder={t.welcomeDailyNotePlaceholder}
             className="mt-1 w-full resize-none rounded-2xl border border-pink-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none transition focus:border-blue-900"
           />
         </div>
@@ -242,7 +247,7 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
           onClick={() => onGoToTasks(noteText)}
           className="ios-press mt-3.5 flex w-full items-center justify-center gap-1 rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20"
         >
-          <span>{noteText.trim() ? 'Lưu & Đi xem task' : 'Đi xem task'}</span>
+          <span>{noteText.trim() ? t.welcomeSaveAndGo : t.welcomeGo}</span>
           <GIcon name="chevron_right" size={16} />
         </button>
       </div>
@@ -251,11 +256,13 @@ export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
 };
 
 interface CelebrationMascotModalProps {
+  t: Translations;
   completedCount: number;
   onClose: () => void;
 }
 
 export const CelebrationMascotModal: React.FC<CelebrationMascotModalProps> = ({
+  t,
   completedCount,
   onClose,
 }) => {
@@ -273,13 +280,13 @@ export const CelebrationMascotModal: React.FC<CelebrationMascotModalProps> = ({
         </div>
 
         <span className="mt-2 inline-block rounded-full bg-pink-100 px-3 py-1 text-[11px] font-extrabold text-blue-900">
-          HOÀN THÀNH 100%
+          {t.celebrateBadge}
         </span>
         <h3 className="mt-2.5 text-lg font-extrabold text-blue-950">
-          Tuyệt vời quá đi!
+          {t.celebrateTitle}
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-slate-600">
-          Bạn đã hoàn thành trọn vẹn cả <strong>{completedCount}</strong> công việc hôm nay. Nghỉ ngơi và tận hưởng nhé!
+          {t.celebrateDesc(completedCount)}
         </p>
 
         <button
@@ -287,7 +294,7 @@ export const CelebrationMascotModal: React.FC<CelebrationMascotModalProps> = ({
           onClick={onClose}
           className="ios-press mt-5 w-full rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/25"
         >
-          Okay
+          {t.okay}
         </button>
       </div>
     </div>

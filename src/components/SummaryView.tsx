@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import type { Translations } from '../i18n/translations';
 import type { SummaryPeriod, Task, TaskLog } from '../types/habit';
 import {
   addDays,
@@ -12,13 +13,12 @@ import {
 import { GIcon, TaskGlyph } from './GIcon';
 
 interface SummaryViewProps {
+  t: Translations;
   tasks: Task[];
   logs: TaskLog[];
 }
 
-const WEEKDAY_HEADERS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
-export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
+export const SummaryView: React.FC<SummaryViewProps> = ({ t, tasks, logs }) => {
   const [period, setPeriod] = useState<SummaryPeriod>('year');
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
 
@@ -61,9 +61,9 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
       return `${weekDates[0].slice(5).replace('-', '/')} – ${weekDates[6].slice(5).replace('-', '/')}`;
     }
     if (period === 'month') {
-      return `Tháng ${monthIndex + 1}/${monthYear}`;
+      return t.monthSummary(monthIndex + 1, monthYear);
     }
-    return `Tổng kết năm ${year}`;
+    return t.yearSummary(year);
   };
 
   const getDayOverallRatio = (dateKey: string): number | null => {
@@ -89,9 +89,9 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
         />
         {(
           [
-            { id: 'week', label: 'Tuần' },
-            { id: 'month', label: 'Tháng' },
-            { id: 'year', label: 'Năm' },
+            { id: 'week', label: t.week },
+            { id: 'month', label: t.month },
+            { id: 'year', label: t.year },
           ] as { id: SummaryPeriod; label: string }[]
         ).map((tab) => (
           <button
@@ -162,8 +162,8 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
                       <p className="text-sm font-bold text-[#231926]">{task.title}</p>
                       <p className="text-[11px] text-slate-500">
                         {task.target_type === 'count'
-                          ? `Tổng tuần: ${totalValue} ${task.unit}`
-                          : `${Math.round(ratioSum)}/${scheduledDays} ngày`}
+                          ? t.weekTotal(totalValue, task.unit)
+                          : `${Math.round(ratioSum)}/${scheduledDays} ${t.daysLabel}`}
                       </p>
                     </div>
                   </div>
@@ -195,7 +195,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
                           title={`${dKey}: ${Math.round(ratio * 100)}%`}
                         />
                         <span className="text-[10px] font-semibold text-slate-400">
-                          {WEEKDAY_HEADERS[i]}
+                          {t.weekdays[i]}
                         </span>
                       </div>
                     );
@@ -214,7 +214,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
           className="animate-ios-page rounded-[24px] border border-pink-100 bg-white p-4 shadow-[0_6px_24px_-8px_rgba(236,72,153,0.12)]"
         >
           <div className="grid grid-cols-7 gap-1.5 text-center">
-            {WEEKDAY_HEADERS.map((h) => (
+            {t.weekdays.map((h) => (
               <div key={h} className="pb-1.5 text-[11px] font-bold text-pink-400">
                 {h}
               </div>
@@ -248,7 +248,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
             })}
           </div>
           <div className="mt-4 flex items-center justify-end gap-1.5 text-[11px] font-medium text-slate-400">
-            <span>Ít</span>
+            <span>{t.less}</span>
             <span className="h-3 w-3 rounded-sm bg-pink-50" />
             <span className="h-3 w-3 rounded-sm bg-pink-200" />
             <span className="h-3 w-3 rounded-sm bg-pink-400" />
@@ -298,8 +298,8 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ tasks, logs }) => {
                     <span className="hidden text-xs text-slate-400 sm:inline">
                       •{' '}
                       {task.target_type === 'count'
-                        ? `${task.target_value} ${task.unit}/ngày`
-                        : 'Hằng ngày'}
+                        ? `${task.target_value} ${task.unit}`
+                        : t.dailyLabel}
                     </span>
                   </div>
                   <span

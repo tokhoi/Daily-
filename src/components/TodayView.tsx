@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
+import type { Translations } from '../i18n/translations';
 import type { DailyNote, Task, TaskLog } from '../types/habit';
 import {
   addDays,
-  formatShortDate,
   getLogCompletionRatio,
   getWeekDates,
   isTaskScheduledForDate,
@@ -12,6 +12,7 @@ import {
 import { GIcon, TaskGlyph } from './GIcon';
 
 interface TodayViewProps {
+  t: Translations;
   selectedDate: string;
   onSelectDate: (dateKey: string) => void;
   tasks: Task[];
@@ -45,6 +46,7 @@ const CONFETTI_PARTICLES = [
 ];
 
 export const TodayView: React.FC<TodayViewProps> = ({
+  t,
   selectedDate,
   onSelectDate,
   tasks,
@@ -163,6 +165,15 @@ export const TodayView: React.FC<TodayViewProps> = ({
     setEditingNoteTaskId(null);
   };
 
+  const formatDateLabel = (key: string) => {
+    if (key === todayKey) return t.today;
+    if (key === toDateKey(addDays(new Date(), -1))) return t.yesterday;
+    if (key === toDateKey(addDays(new Date(), 1))) return t.tomorrow;
+    const d = parseDateKey(key);
+    const isoIdx = (d.getDay() + 6) % 7;
+    return `${t.weekdays[isoIdx]}, ${d.getDate()}/${d.getMonth() + 1}`;
+  };
+
   const renderTaskCard = (task: Task) => {
     const log = logMap.get(task.id);
     const value = log?.value ?? 0;
@@ -219,16 +230,16 @@ export const TodayView: React.FC<TodayViewProps> = ({
             </p>
             <p className="mt-0.5 text-xs text-slate-500">
               {isSkipped ? (
-                <span className="font-semibold text-amber-600">Đã bỏ qua hôm nay</span>
+                <span className="font-semibold text-amber-600">{t.skippedToday}</span>
               ) : task.target_type === 'count' ? (
                 <span>
                   <strong className="font-bold text-blue-950">{value}</strong> / {target}{' '}
                   {task.unit}
                 </span>
               ) : isDone ? (
-                <span className="font-semibold text-blue-900">Đã hoàn thành</span>
+                <span className="font-semibold text-blue-900">{t.completed}</span>
               ) : (
-                <span>Chưa hoàn thành</span>
+                <span>{t.notCompleted}</span>
               )}
             </p>
           </div>
@@ -366,7 +377,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   saveNote(task);
                 }
               }}
-              placeholder="Ghi chú nhanh cho việc này..."
+              placeholder={t.noteInlinePlaceholder}
               className="flex-1 rounded-xl border border-pink-200 bg-pink-50/40 px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-800 focus:bg-white"
             />
             <button
@@ -374,7 +385,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               onClick={() => saveNote(task)}
               className="ios-press rounded-xl bg-blue-900 px-3 py-1.5 text-xs font-bold text-white"
             >
-              Lưu
+              {t.save}
             </button>
           </div>
         )}
@@ -391,7 +402,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
         {/* Secondary actions */}
         <div className="mt-2.5 flex items-center justify-between border-t border-pink-50 pt-2 text-[11px] text-slate-400">
-          <span className="text-[10px] text-pink-300">Nhấn giữ để sửa</span>
+          <span className="text-[10px] text-pink-300">{t.holdToEdit}</span>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -401,7 +412,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               }`}
             >
               <GIcon name="edit_note" size={14} />
-              Ghi chú
+              {t.noteBtn}
             </button>
             <button
               type="button"
@@ -411,7 +422,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               }`}
             >
               <GIcon name="skip_next" size={14} />
-              {isSkipped ? 'Bỏ skip' : 'Bỏ qua'}
+              {isSkipped ? t.unskipBtn : t.skipBtn}
             </button>
             <button
               type="button"
@@ -419,7 +430,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               className="flex items-center gap-1 rounded-lg px-2 py-0.5 transition hover:bg-rose-50 hover:text-rose-600"
             >
               <GIcon name="visibility_off" size={14} />
-              Ẩn
+              {t.hideBtn}
             </button>
           </div>
         </div>
@@ -443,7 +454,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
           <div className="flex items-center gap-2">
             <span className="text-sm font-extrabold text-blue-950">
-              {formatShortDate(selectedDate)}
+              {formatDateLabel(selectedDate)}
             </span>
             {selectedDate !== todayKey && (
               <button
@@ -451,7 +462,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                 onClick={() => onSelectDate(todayKey)}
                 className="ios-press rounded-full bg-blue-900/10 px-2.5 py-0.5 text-[11px] font-bold text-blue-900"
               >
-                Về hôm nay
+                {t.backToToday}
               </button>
             )}
           </div>
@@ -485,7 +496,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                       : 'text-slate-500 hover:bg-pink-50'
                 }`}
               >
-                <span className="text-[10px] opacity-80">{WEEKDAY_LABELS[idx]}</span>
+                <span className="text-[10px] opacity-80">{t.weekdays[idx]}</span>
                 <span className="mt-0.5 text-xs">{d.getDate()}</span>
               </button>
             );
@@ -505,11 +516,11 @@ export const TodayView: React.FC<TodayViewProps> = ({
           <div>
             <p className="text-xs font-semibold text-pink-500">
               {overallPercent === 100 && totalTasks > 0
-                ? 'Xuất sắc! Hoàn thành 100%'
-                : 'Tiến độ hôm nay'}
+                ? t.progress100
+                : t.progressToday}
             </p>
             <p className="mt-0.5 text-lg font-extrabold text-blue-950">
-              {completedCount}/{totalTasks} việc đã xong
+              {completedCount}/{totalTasks} {t.tasksDoneSuffix}
             </p>
           </div>
           <div className="animate-gradient-flow flex h-12 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-400 to-blue-900 text-sm font-extrabold text-white shadow-md shadow-blue-900/20">
@@ -529,7 +540,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-extrabold text-blue-900">
             <GIcon name="edit_note" size={17} className="text-pink-500" />
-            <span>Ghi chú cho {formatShortDate(selectedDate).toLowerCase()}</span>
+            <span>{t.dailyNoteTitle} {formatDateLabel(selectedDate).toLowerCase()}</span>
           </div>
           <button
             type="button"
@@ -539,7 +550,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             }}
             className="text-[11px] font-bold text-pink-500 hover:text-blue-900"
           >
-            {isEditingDailyNote ? 'Đóng' : dailyNote?.text ? 'Sửa' : '+ Viết'}
+            {isEditingDailyNote ? t.close : dailyNote?.text ? t.edit : t.write}
           </button>
         </div>
 
@@ -560,7 +571,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
                   setIsEditingDailyNote(false);
                 }
               }}
-              placeholder="Nhắc nhở / ghi chú cho ngày này..."
+              placeholder={t.dailyNotePlaceholder}
               className="flex-1 rounded-xl border border-pink-200 bg-pink-50/40 px-3 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-900 focus:bg-white"
             />
             <button
@@ -574,7 +585,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
               }}
               className="ios-press rounded-xl bg-blue-900 px-3 py-1.5 text-xs font-bold text-white"
             >
-              Lưu
+              {t.save}
             </button>
           </div>
         ) : dailyNote?.text ? (
@@ -602,7 +613,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
           </label>
         ) : (
           <p className="mt-1 text-[11px] text-slate-400">
-            Chưa có ghi chú nào cho ngày này.
+            {t.dailyNoteEmpty}
           </p>
         )}
 
@@ -619,7 +630,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-blue-900">
             <GIcon name="repeat" size={16} />
-            <span>Việc cố định ({recurringTasks.length})</span>
+            <span>{t.recurringTasks} ({recurringTasks.length})</span>
           </div>
           <button
             type="button"
@@ -627,12 +638,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
             className="ios-press flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-xs font-bold text-blue-900 hover:bg-pink-200/70"
           >
             <GIcon name="add" size={15} />
-            Thêm việc
+            {t.addTask}
           </button>
         </div>
         {recurringTasks.length === 0 ? (
           <div className="rounded-[22px] border border-dashed border-pink-200 bg-white p-6 text-center text-xs text-slate-400">
-            Chưa có việc cố định nào cho ngày này.
+            {t.noRecurring}
           </div>
         ) : (
           <div className="space-y-3">{recurringTasks.map(renderTaskCard)}</div>
@@ -644,7 +655,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-pink-500">
             <GIcon name="auto_awesome" size={16} filled />
-            <span>Tùy biến hôm nay ({adhocTasks.length})</span>
+            <span>{t.adhocTasks} ({adhocTasks.length})</span>
           </div>
         </div>
         {adhocTasks.length === 0 ? (
@@ -653,7 +664,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
             onClick={onOpenAddModal}
             className="ios-press w-full rounded-[22px] border border-dashed border-pink-200 bg-white p-4 text-center text-xs font-semibold text-blue-900 hover:bg-pink-50/40"
           >
-            + Thêm việc phát sinh riêng cho {formatShortDate(selectedDate).toLowerCase()}
+            {t.addAdhocPrompt} {formatDateLabel(selectedDate).toLowerCase()}
           </button>
         ) : (
           <div className="space-y-3">{adhocTasks.map(renderTaskCard)}</div>
