@@ -35,6 +35,10 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 }) => {
   const [period, setPeriod] = useState<SummaryPeriod>('year');
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
+  const [summaryScope, setSummaryScope] = useState<'personal' | 'couple'>(() =>
+    coupleProfile?.isPaired ? 'couple' : 'personal'
+  );
+  const showCoupleStats = Boolean(coupleProfile?.isPaired && summaryScope === 'couple');
 
   const logByKey = useMemo(() => {
     const map = new Map<string, TaskLog>();
@@ -112,13 +116,41 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
 
   return (
     <div className="animate-ios-page space-y-4 pb-6">
+      {/* Scope Switcher: Personal vs Couple (only when paired) */}
+      {coupleProfile?.isPaired && (
+        <div className="relative grid grid-cols-2 rounded-2xl border border-pink-100 bg-white p-1 shadow-[0_4px_20px_-6px_rgba(236,72,153,0.10)]">
+          <div
+            className="absolute top-1 bottom-1 left-1 w-[calc((100%-8px)/2)] rounded-xl bg-gradient-to-r from-pink-400 to-blue-900 shadow-sm transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+            style={{ transform: `translateX(${summaryScope === 'couple' ? 100 : 0}%)` }}
+          />
+          <button
+            type="button"
+            onClick={() => setSummaryScope('personal')}
+            className={`relative z-10 rounded-xl py-2 text-xs font-bold transition-colors duration-300 ${
+              summaryScope === 'personal' ? 'text-white' : 'text-slate-500 hover:text-pink-600'
+            }`}
+          >
+            Cá nhân
+          </button>
+          <button
+            type="button"
+            onClick={() => setSummaryScope('couple')}
+            className={`relative z-10 truncate px-2 rounded-xl py-2 text-xs font-bold transition-colors duration-300 ${
+              summaryScope === 'couple' ? 'text-white' : 'text-slate-500 hover:text-pink-600'
+            }`}
+          >
+            Cùng {coupleProfile.partnerName}
+          </button>
+        </div>
+      )}
+
       {/* Progress for one person or both people in a shared room. */}
       <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
           <div className="mb-3 flex items-center justify-between">
             <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-              {coupleProfile?.isPaired ? 'Tiến độ của hai người (7 ngày)' : 'Tiến độ của bạn (7 ngày)'}
+              {showCoupleStats ? 'Tiến độ của hai người (7 ngày)' : 'Tiến độ của bạn (7 ngày)'}
             </h3>
-            {coupleProfile?.isPaired && (
+            {showCoupleStats && coupleProfile && (
             <span className="rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-500">
               {myWeekAvg === partnerWeekAvg
                 ? 'Hai bạn ngang nhau'
@@ -129,14 +161,14 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
             )}
           </div>
 
-          <div className={`mb-3 grid gap-2 ${coupleProfile?.isPaired ? 'grid-cols-2' : 'grid-cols-1'}`}>
+          <div className={`mb-3 grid gap-2 ${showCoupleStats ? 'grid-cols-2' : 'grid-cols-1'}`}>
             <div className="rounded-2xl bg-pink-50/70 p-2.5 text-center">
               <p className="text-[10px] font-bold text-slate-400">
                 Hôm nay ({coupleProfile?.myName || 'Bạn'})
               </p>
               <p className="mt-0.5 text-base font-extrabold text-pink-500">{myPercent}%</p>
             </div>
-            {coupleProfile?.isPaired && <div className="rounded-2xl bg-blue-50/60 p-2.5 text-center">
+            {showCoupleStats && coupleProfile && <div className="rounded-2xl bg-blue-50/60 p-2.5 text-center">
               <p className="text-[10px] font-bold text-slate-400">
                 Hôm nay ({coupleProfile.partnerName})
               </p>
@@ -144,14 +176,14 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
             </div>}
           </div>
 
-          <div className={`mb-4 grid gap-2 text-center ${coupleProfile?.isPaired ? 'grid-cols-3' : 'grid-cols-1'}`}>
+          <div className={`mb-4 grid gap-2 text-center ${showCoupleStats ? 'grid-cols-3' : 'grid-cols-1'}`}>
             <div className="rounded-2xl bg-pink-50/70 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">
                 TB Tuần ({coupleProfile?.myName || 'Bạn'})
               </p>
               <p className="mt-0.5 text-sm font-extrabold text-pink-500">{myWeekAvg}%</p>
             </div>
-            {coupleProfile?.isPaired && <div className="rounded-2xl bg-pink-50/70 p-2.5">
+            {showCoupleStats && <div className="rounded-2xl bg-pink-50/70 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">Chênh lệch</p>
               <p className="mt-0.5 text-sm font-extrabold text-blue-950">
                 {myWeekAvg === partnerWeekAvg
@@ -161,7 +193,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                   : `${myWeekAvg - partnerWeekAvg}%`}
               </p>
             </div>}
-            {coupleProfile?.isPaired && <div className="rounded-2xl bg-blue-50/60 p-2.5">
+            {showCoupleStats && coupleProfile && <div className="rounded-2xl bg-blue-50/60 p-2.5">
               <p className="text-[10px] font-bold text-slate-400">
                 TB Tuần ({coupleProfile.partnerName})
               </p>
@@ -182,7 +214,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                           style={{ height: `${Math.max(8, day.percent)}%` }}
                           title={`${coupleProfile?.myName || 'Bạn'}: ${day.percent}%`}
                         />
-                        {coupleProfile?.isPaired && (
+                        {showCoupleStats && coupleProfile && (
                         <div
                           className="w-2.5 rounded-t-full bg-blue-900 transition-all duration-500"
                           style={{ height: `${Math.max(8, pVal)}%` }}
@@ -201,7 +233,7 @@ export const SummaryView: React.FC<SummaryViewProps> = ({
                   <span className="h-2.5 w-2.5 rounded-full bg-pink-400" />
                   {coupleProfile?.myName || 'Bạn'}
                 </span>
-                {coupleProfile?.isPaired && (
+                {showCoupleStats && coupleProfile && (
                 <span className="flex items-center gap-1.5 text-blue-950">
                   <span className="h-2.5 w-2.5 rounded-full bg-blue-900" />
                   {coupleProfile.partnerName}
