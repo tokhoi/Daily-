@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { Task, TaskLog } from '../types/habit';
 import {
   addDays,
@@ -10,13 +10,13 @@ import {
   toDateKey,
 } from '../utils/dateUtils';
 import { GIcon, TaskGlyph } from './GIcon';
-import { WelcomeMascotBanner } from './JellycatMascot';
 
 interface TodayViewProps {
   selectedDate: string;
   onSelectDate: (dateKey: string) => void;
   tasks: Task[];
   logs: TaskLog[];
+  scrollToTasksTrigger?: number;
   onToggleBoolean: (task: Task, dateKey: string) => void;
   onIncrementCount: (task: Task, dateKey: string, delta: number) => void;
   onToggleSkip: (task: Task, dateKey: string) => void;
@@ -45,6 +45,7 @@ export const TodayView: React.FC<TodayViewProps> = ({
   onSelectDate,
   tasks,
   logs,
+  scrollToTasksTrigger = 0,
   onToggleBoolean,
   onIncrementCount,
   onToggleSkip,
@@ -59,7 +60,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   const [holdingTaskId, setHoldingTaskId] = useState<string | null>(null);
   const [burstTaskId, setBurstTaskId] = useState<string | null>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
   const [editingNoteTaskId, setEditingNoteTaskId] = useState<string | null>(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
@@ -67,6 +67,12 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const holdTimerRef = useRef<number | null>(null);
   const startPosRef = useRef<{ x: number; y: number } | null>(null);
   const taskListRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (scrollToTasksTrigger > 0) {
+      taskListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [scrollToTasksTrigger]);
 
   const scheduledTasks = tasks.filter((t) => isTaskScheduledForDate(t, selectedDate));
   const recurringTasks = scheduledTasks.filter((t) => t.is_recurring);
@@ -77,12 +83,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
     if (l.log_date === selectedDate) {
       logMap.set(l.task_id, l);
     }
-  });
-
-  const pendingTasks = scheduledTasks.filter((t) => {
-    const log = logMap.get(t.id);
-    if (log?.status === 'skipped') return false;
-    return getLogCompletionRatio(t, log) < 1;
   });
 
   const totalTasks = scheduledTasks.length;
@@ -151,10 +151,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
   const saveNote = (task: Task) => {
     onUpdateNote(task, selectedDate, noteDraft.trim());
     setEditingNoteTaskId(null);
-  };
-
-  const scrollToTasks = () => {
-    taskListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const renderTaskCard = (task: Task) => {
@@ -402,15 +398,6 @@ export const TodayView: React.FC<TodayViewProps> = ({
 
   return (
     <div className="animate-ios-page space-y-4 pb-6">
-      {/* Welcome Reminder with Jellycat Pink Mascot */}
-      {showWelcome && selectedDate === todayKey && pendingTasks.length > 0 && (
-        <WelcomeMascotBanner
-          pendingTasks={pendingTasks}
-          onGoToTasks={scrollToTasks}
-          onDismiss={() => setShowWelcome(false)}
-        />
-      )}
-
       {/* Date Navigation Card */}
       <div className="rounded-[24px] border border-pink-100 bg-white p-3.5 shadow-[0_6px_24px_-8px_rgba(244,114,182,0.14)]">
         <div className="flex items-center justify-between">

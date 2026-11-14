@@ -5,7 +5,11 @@ import { SettingsView } from './components/SettingsView';
 import { SummaryView } from './components/SummaryView';
 import { TodayView } from './components/TodayView';
 import { WeatherOverlay, type WeatherMode } from './components/WeatherOverlay';
-import { CelebrationMascotModal } from './components/JellycatMascot';
+import {
+  CelebrationMascotModal,
+  SetupSheetOverlayModal,
+  WelcomeOverlayModal,
+} from './components/JellycatMascot';
 import { PhotoCheckModal } from './components/PhotoCheckModal';
 import { createSeedData } from './data/seedData';
 import {
@@ -33,6 +37,13 @@ export function App() {
     dateKey: string;
     nextValue: number;
   } | null>(null);
+  const [showSetupOverlay, setShowSetupOverlay] = useState<boolean>(
+    () => !getSavedSheetUrl()
+  );
+  const [showWelcomeOverlay, setShowWelcomeOverlay] = useState<boolean>(
+    () => Boolean(getSavedSheetUrl())
+  );
+  const [scrollToTasksTrigger, setScrollToTasksTrigger] = useState(0);
 
   const [tasks, setTasks] = useState<Task[]>(() => {
     const cached = loadLocalData();
@@ -305,6 +316,14 @@ export function App() {
     setLogs(seed.logs);
   };
 
+  const todayKey = toDateKey(new Date());
+  const pendingTodayTasks = tasks.filter((t) => {
+    if (!isTaskScheduledForDate(t, todayKey)) return false;
+    const log = logs.find((l) => l.task_id === t.id && l.log_date === todayKey);
+    if (log?.status === 'skipped') return false;
+    return getLogCompletionRatio(t, log) < 1;
+  });
+
   const activeTabIndex = activeTab === 'today' ? 0 : activeTab === 'summary' ? 1 : 2;
 
   return (
@@ -411,6 +430,7 @@ export function App() {
               onSelectDate={setSelectedDate}
               tasks={tasks}
               logs={logs}
+              scrollToTasksTrigger={scrollToTasksTrigger}
               onToggleBoolean={handleToggleBoolean}
               onIncrementCount={handleIncrementCount}
               onToggleSkip={handleToggleSkip}
@@ -500,6 +520,35 @@ export function App() {
             task={pendingPhotoCheck.task}
             onConfirm={handleConfirmPhotoCheck}
             onCancel={() => setPendingPhotoCheck(null)}
+          />
+        )}
+
+        {/* Step 1: Setup Google Sheet URL Overlay if not configured */}
+        {showSetupOverlay && (
+          <SetupSheetOverlayModal
+            onSaveUrl={(url) => {
+              handleSaveSheetUrl(url);
+              setShowSetupOverlay(false);
+              setShowWelcomeOverlay(true);
+            }}
+            onSkip={() => {
+              setShowSetupOverlay(false);
+              setShowWelcomeOverlay(true);
+            }}
+          />
+        )}
+
+        {/* Step 2: Welcome Task Reminder Overlay */}
+        {!showSetupOverlay && showWelcomeOverlay && pendingTodayTasks.length > 0 && (
+          <WelcomeOverlayModal
+            pendingTasks={pendingTodayTasks}
+            onGoToTasks={() => {
+              setShowWelcomeOverlay(false);
+              setActiveTab('today');
+              setSelectedDate(todayKey);
+              setScrollToTasksTrigger((n) => n + 1);
+            }}
+            onDismiss={() => setShowWelcomeOverlay(false)}
           />
         )}
 

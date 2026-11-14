@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Task } from '../types/habit';
 import { GIcon } from './GIcon';
 
@@ -91,13 +91,77 @@ export const JellycatPlushSvg: React.FC<PlushSvgProps> = ({
   );
 };
 
-interface WelcomeMascotBannerProps {
+interface SetupSheetOverlayModalProps {
+  onSaveUrl: (url: string) => void;
+  onSkip: () => void;
+}
+
+export const SetupSheetOverlayModal: React.FC<SetupSheetOverlayModalProps> = ({
+  onSaveUrl,
+  onSkip,
+}) => {
+  const [url, setUrl] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!url.trim()) return;
+    onSaveUrl(url.trim());
+  };
+
+  return (
+    <div className="animate-ios-backdrop fixed inset-0 z-50 flex items-center justify-center bg-blue-950/30 px-5 backdrop-blur-[3px]">
+      <div className="animate-ios-pop w-full max-w-[360px] rounded-[32px] border border-pink-200 bg-gradient-to-b from-white via-pink-50/40 to-white p-6 text-center shadow-2xl">
+        <div className="mx-auto flex justify-center">
+          <JellycatPlushSvg size={104} clapping={false} />
+        </div>
+
+        <span className="mt-1 inline-block rounded-full bg-pink-100 px-3 py-0.5 text-[11px] font-extrabold text-blue-900">
+          THIẾT LẬP BAN ĐẦU
+        </span>
+        <h3 className="mt-2 text-base font-extrabold text-blue-950">
+          Chưa có URL Google Sheets
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          Dán URL Google Apps Script của bạn vào đây để đồng bộ dữ liệu nhiều thiết bị nhé.
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-2.5">
+          <input
+            type="url"
+            required
+            autoFocus
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://script.google.com/macros/s/.../exec"
+            className="w-full rounded-2xl border border-pink-200 bg-pink-50/40 px-3.5 py-2.5 text-xs text-slate-800 outline-none transition focus:border-blue-900 focus:bg-white"
+          />
+          <button
+            type="submit"
+            className="ios-press w-full rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20"
+          >
+            Lưu & Kết nối
+          </button>
+        </form>
+
+        <button
+          type="button"
+          onClick={onSkip}
+          className="mt-2.5 w-full py-1.5 text-xs font-semibold text-slate-400 hover:text-slate-600"
+        >
+          Để sau, dùng tạm Local
+        </button>
+      </div>
+    </div>
+  );
+};
+
+interface WelcomeOverlayModalProps {
   pendingTasks: Task[];
   onGoToTasks: () => void;
   onDismiss: () => void;
 }
 
-export const WelcomeMascotBanner: React.FC<WelcomeMascotBannerProps> = ({
+export const WelcomeOverlayModal: React.FC<WelcomeOverlayModalProps> = ({
   pendingTasks,
   onGoToTasks,
   onDismiss,
@@ -105,47 +169,55 @@ export const WelcomeMascotBanner: React.FC<WelcomeMascotBannerProps> = ({
   if (pendingTasks.length === 0) return null;
 
   return (
-    <div className="animate-ios-page relative overflow-hidden rounded-[26px] border border-pink-200/80 bg-gradient-to-br from-white via-pink-50/70 to-blue-50/40 p-4 shadow-[0_8px_28px_-8px_rgba(30,58,138,0.14)]">
-      <button
-        type="button"
-        onClick={onDismiss}
-        className="ios-press absolute top-3 right-3 flex h-7 w-7 items-center justify-center rounded-full bg-white/80 text-slate-400 hover:text-blue-900"
-        aria-label="Đóng nhắc nhở"
+    <div
+      className="animate-ios-backdrop fixed inset-0 z-50 flex items-center justify-center bg-blue-950/25 px-5 backdrop-blur-[3px]"
+      onClick={onDismiss}
+    >
+      <div
+        className="animate-ios-pop relative w-full max-w-[350px] rounded-[32px] border border-pink-200 bg-gradient-to-b from-white via-pink-50/50 to-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
       >
-        <GIcon name="close" size={16} />
-      </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="ios-press absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-pink-50 text-slate-400 hover:text-blue-900"
+          aria-label="Đóng nhắc nhở"
+        >
+          <GIcon name="close" size={18} />
+        </button>
 
-      <div className="flex items-center gap-3">
-        <JellycatPlushSvg size={76} clapping={false} />
-        <div className="min-w-0 flex-1 pr-5">
-          <p className="text-xs font-extrabold text-blue-900">
-            Chào bạn! Còn {pendingTasks.length} việc chưa xong nè
-          </p>
-          <ul className="mt-1.5 space-y-1">
-            {pendingTasks.slice(0, 3).map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center gap-1.5 truncate text-[11px] font-medium text-slate-600"
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-pink-400" />
-                <span className="truncate">{t.title}</span>
-              </li>
-            ))}
-            {pendingTasks.length > 3 && (
-              <li className="text-[10px] font-semibold text-pink-500">
-                +{pendingTasks.length - 3} việc khác...
-              </li>
-            )}
-          </ul>
-          <button
-            type="button"
-            onClick={onGoToTasks}
-            className="ios-press mt-2.5 inline-flex items-center gap-1 rounded-full bg-blue-900 px-3.5 py-1.5 text-[11px] font-bold text-white shadow-sm shadow-blue-900/20"
-          >
-            <span>Đi xem task</span>
-            <GIcon name="chevron_right" size={15} />
-          </button>
+        <div className="flex flex-col items-center text-center">
+          <JellycatPlushSvg size={102} clapping={false} />
+          <h3 className="mt-2 text-base font-extrabold text-blue-950">
+            Hôm nay còn {pendingTasks.length} việc chưa xong nè
+          </h3>
         </div>
+
+        <ul className="mt-3.5 space-y-2 rounded-2xl border border-pink-100 bg-pink-50/50 p-3.5">
+          {pendingTasks.slice(0, 4).map((t) => (
+            <li
+              key={t.id}
+              className="flex items-center gap-2 truncate text-xs font-semibold text-slate-700"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-pink-400" />
+              <span className="truncate">{t.title}</span>
+            </li>
+          ))}
+          {pendingTasks.length > 4 && (
+            <li className="text-[11px] font-bold text-pink-500">
+              +{pendingTasks.length - 4} việc khác...
+            </li>
+          )}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onGoToTasks}
+          className="ios-press mt-4 flex w-full items-center justify-center gap-1 rounded-2xl bg-blue-900 py-3 text-xs font-extrabold text-white shadow-md shadow-blue-900/20"
+        >
+          <span>Đi xem task</span>
+          <GIcon name="chevron_right" size={16} />
+        </button>
       </div>
     </div>
   );
