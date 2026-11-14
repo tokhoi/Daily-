@@ -1282,12 +1282,7 @@ export function App() {
         {activeTab === 'today' && (
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('couple');
-              setTimeout(() => {
-                document.getElementById('couple-chat-box')?.scrollIntoView({ behavior: 'smooth' });
-              }, 160);
-            }}
+            onClick={() => setActiveTab('chat')}
             className="ios-press fixed right-4 bottom-24 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-pink-400 to-blue-900 text-white shadow-[0_10px_28px_-6px_rgba(236,72,153,0.55)]"
             title="Nhắn tin Couple"
             aria-label="Nhắn tin Couple"
