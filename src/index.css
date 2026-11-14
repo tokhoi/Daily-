@@ -274,6 +274,117 @@
   animation: earWiggle 1.8s ease-in-out infinite;
 }
 
+@keyframes bear2dFloat {
+  0%, 100% {
+    transform: translateY(0) rotate(-0.7deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(0.7deg);
+  }
+}
+
+@keyframes bear2dDance {
+  0%, 100% {
+    transform: translateY(0) rotate(-3deg) scale(1);
+  }
+  25% {
+    transform: translateY(-5px) rotate(3deg) scale(1.015);
+  }
+  75% {
+    transform: translateY(-3px) rotate(-2deg) scale(1.01);
+  }
+}
+
+@keyframes bear2dSleep {
+  0%, 100% {
+    transform: translateY(2px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateY(0) rotate(0deg) scale(1.015, 0.99);
+  }
+}
+
+@keyframes bear2dHeartFloat {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-6px) scale(1.04);
+  }
+}
+
+@keyframes bear2dTearDrop {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+@keyframes bear2dZzz {
+  0%, 100% {
+    opacity: 0.72;
+    transform: translateY(1px);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.bear2d-motion {
+  transform-origin: 160px 239px;
+}
+
+.bear2d-motion--float {
+  animation: bear2dFloat 2.6s ease-in-out infinite;
+}
+
+.bear2d-motion--dance {
+  animation: bear2dDance 1.15s ease-in-out infinite;
+}
+
+.bear2d-motion--sleep {
+  animation: bear2dSleep 3.2s ease-in-out infinite;
+}
+
+.bear2d-character {
+  transform-origin: center;
+  transition: transform 180ms var(--ios-ease);
+}
+
+.bear2d-character:active {
+  transform: scale(0.985);
+}
+
+.bear2d-hearts {
+  animation: bear2dHeartFloat 1.8s ease-in-out infinite;
+}
+
+.bear2d-tears {
+  animation: bear2dTearDrop 0.9s ease-in-out infinite;
+}
+
+.bear2d-zzz {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bear2dZzz 2.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bear2d-motion,
+  .bear2d-hearts,
+  .bear2d-tears,
+  .bear2d-zzz {
+    animation: none !important;
+  }
+
+  .bear2d-character {
+    transition: none;
+  }
+}
+
 /* Smooth Auto / Manual Dark Mode */
 .theme-dark {
   background-color: #0b1120 !important;

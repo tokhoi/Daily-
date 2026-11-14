@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AddTaskModal } from './components/AddTaskModal';
 import { Bear3DStudio } from './components/Bear3DStudio';
+import { ChatView } from './components/ChatView';
 import { CoupleView } from './components/CoupleView';
 import { GIcon } from './components/GIcon';
 import { SettingsView } from './components/SettingsView';
@@ -279,10 +280,48 @@ export function App() {
         activeUser && remote.users
           ? remote.users.find((u) => u.user_id === activeUser.user_id)
           : undefined;
-      const mergedUser =
-        activeUser && serverUser ? { ...activeUser, ...serverUser } : activeUser;
+      const reversePartner =
+        activeUser && remote.users
+          ? remote.users.find(
+              (u) => u.user_id !== activeUser.user_id && u.partner_id === activeUser.user_id
+            )
+          : undefined;
 
-      if (mergedUser && serverUser) {
+      const myCodeUpper = (activeUser?.user_id || coupleProfile.myCode || '').toUpperCase();
+      const serverProfile = remote.coupleProfiles?.find(
+        (p) =>
+          p.isPaired &&
+          ((myCodeUpper && p.myCode.toUpperCase() === myCodeUpper) ||
+            (myCodeUpper && p.partnerCode.toUpperCase() === myCodeUpper) ||
+            (serverUser?.room_code &&
+              p.partnerCode.toUpperCase() === serverUser.room_code.toUpperCase()))
+      );
+
+      const resolvedPartnerId =
+        serverUser?.partner_id ||
+        reversePartner?.user_id ||
+        activeUser?.partner_id ||
+        (serverProfile && serverProfile.myCode.toUpperCase() !== myCodeUpper
+          ? serverProfile.myCode.toLowerCase()
+          : undefined);
+      const resolvedRoomCode = (
+        serverUser?.room_code ||
+        reversePartner?.room_code ||
+        serverProfile?.partnerCode ||
+        activeUser?.room_code ||
+        ''
+      ).toUpperCase();
+
+      const mergedUser: AppUser | null = activeUser
+        ? {
+            ...activeUser,
+            ...(serverUser || {}),
+            partner_id: resolvedPartnerId,
+            room_code: resolvedRoomCode || undefined,
+          }
+        : null;
+
+      if (mergedUser) {
         if (
           mergedUser.partner_id !== activeUser?.partner_id ||
           mergedUser.room_code !== activeUser?.room_code
@@ -292,16 +331,10 @@ export function App() {
         }
       }
 
-      const myCodeUpper = (mergedUser?.user_id || coupleProfile.myCode || '').toUpperCase();
-      const serverProfile = remote.coupleProfiles?.find(
-        (p) =>
-          (myCodeUpper && p.myCode.toUpperCase() === myCodeUpper) ||
-          (mergedUser?.room_code && p.partnerCode.toUpperCase() === mergedUser.room_code.toUpperCase())
-      );
       const partnerUser =
         mergedUser?.partner_id && remote.users
           ? remote.users.find((u) => u.user_id === mergedUser.partner_id)
-          : undefined;
+          : reversePartner;
 
       if (
         mergedUser &&
@@ -318,55 +351,86 @@ export function App() {
           ).toUpperCase(),
           partnerName:
             partnerUser?.display_name ||
-            serverProfile?.partnerName ||
+            (serverProfile && serverProfile.myCode.toUpperCase() !== myCodeUpper
+              ? serverProfile.myName
+              : serverProfile?.partnerName) ||
             mergedUser.partner_id ||
             prev.partnerName,
           isPaired: true,
         }));
       }
 
-      const activeRoom = (
-        mergedUser?.room_code ||
-        serverProfile?.partnerCode ||
-        coupleProfile.partnerCode ||
-        coupleProfile.myCode ||
-        ''
-      ).toUpperCase();
+      const roomCandidates = new Set(
+        [
+          mergedUser?.room_code,
+          serverProfile?.partnerCode,
+          serverProfile?.myCode,
+          coupleProfile.partnerCode,
+          coupleProfile.myCode,
+          myCodeUpper,
+        ]
+          .filter((x): x is string => Boolean(x && x.trim()))
+          .map((x) => x.trim().toUpperCase())
+      );
+
+      const isRecentOptimistic = (id: string, prefix: string) => {
+        if (!id.startsWith(prefix)) return false;
+        const ts = Number(id.slice(prefix.length));
+        return Number.isFinite(ts) && Date.now() - ts < 45_000;
+      };
+
       if (remote.coupleChat) {
-        const filteredChat = activeRoom
-          ? remote.coupleChat.filter((m) => !m.room_code || m.room_code.toUpperCase() === activeRoom)
-          : remote.coupleChat;
-        setCoupleChat(
-          filteredChat.map((m) => ({
-            ...m,
-            sender:
-              m.sender_id && mergedUser
-                ? m.sender_id === mergedUser.user_id
-                  ? 'me'
-                  : 'partner'
-                : m.sender,
-          }))
-        );
+        const filteredChat =
+          roomCandidates.size > 0
+            ? remote.coupleChat.filter(
+                (m) => !m.room_code || roomCandidates.has(m.room_code.toUpperCase())
+              )
+            : remote.coupleChat;
+        const normalizedRemote: CoupleChatMessage[] = filteredChat.map((m) => ({
+          ...m,
+          sender:
+            m.sender_id && mergedUser
+              ? m.sender_id === mergedUser.user_id
+                ? 'me'
+                : 'partner'
+              : m.sender,
+        }));
+        setCoupleChat((prev) => {
+          const remoteIds = new Set(normalizedRemote.map((m) => m.id));
+          const pendingLocal = prev.filter(
+            (m) => !remoteIds.has(m.id) && isRecentOptimistic(m.id, 'chat_')
+          );
+          return [...normalizedRemote, ...pendingLocal];
+        });
       } else if (allowEmpty) {
-        setCoupleChat([]);
+        setCoupleChat((prev) => prev.filter((m) => isRecentOptimistic(m.id, 'chat_')));
       }
+
       if (remote.coupleNudges) {
-        const filteredNudges = activeRoom
-          ? remote.coupleNudges.filter((n) => !n.room_code || n.room_code.toUpperCase() === activeRoom)
-          : remote.coupleNudges;
-        setNudges(
-          filteredNudges.map((n) => ({
-            ...n,
-            from:
-              n.sender_id && mergedUser
-                ? n.sender_id === mergedUser.user_id
-                  ? 'me'
-                  : 'partner'
-                : n.from,
-          }))
-        );
+        const filteredNudges =
+          roomCandidates.size > 0
+            ? remote.coupleNudges.filter(
+                (n) => !n.room_code || roomCandidates.has(n.room_code.toUpperCase())
+              )
+            : remote.coupleNudges;
+        const normalizedNudges: CoupleNudge[] = filteredNudges.map((n) => ({
+          ...n,
+          from:
+            n.sender_id && mergedUser
+              ? n.sender_id === mergedUser.user_id
+                ? 'me'
+                : 'partner'
+              : n.from,
+        }));
+        setNudges((prev) => {
+          const remoteIds = new Set(normalizedNudges.map((n) => n.id));
+          const pendingLocal = prev.filter(
+            (n) => !remoteIds.has(n.id) && isRecentOptimistic(n.id, 'nudge_')
+          );
+          return [...pendingLocal, ...normalizedNudges].slice(0, 12);
+        });
       } else if (allowEmpty) {
-        setNudges([]);
+        setNudges((prev) => prev.filter((n) => isRecentOptimistic(n.id, 'nudge_')));
       }
       if (remote.partnerCheckins) {
         setPartnerCheckins(remote.partnerCheckins);
@@ -842,7 +906,7 @@ export function App() {
 
   const latestPartnerNudge = nudges.find((n) => n.from === 'partner');
 
-  const tabOrder: AppTab[] = ['today', 'couple', 'bear3d', 'summary', 'settings'];
+  const tabOrder: AppTab[] = ['today', 'couple', 'chat', 'bear3d', 'summary', 'settings'];
   const activeTabIndex = Math.max(0, tabOrder.indexOf(activeTab));
 
   return (
@@ -865,6 +929,7 @@ export function App() {
             <p className="text-[11px] font-medium text-slate-400">
               {activeTab === 'today' && t.appSubtitleToday}
               {activeTab === 'couple' && 'Không gian cặp đôi'}
+              {activeTab === 'chat' && 'Nhắn tin riêng tư'}
               {activeTab === 'bear3d' && 'Bé Gấu đồng hành'}
               {activeTab === 'summary' && t.appSubtitleSummary}
               {activeTab === 'settings' && t.appSubtitleSettings}
@@ -936,24 +1001,40 @@ export function App() {
             <CoupleView
               key="couple-tab"
               myPercent={myPercent}
-              myWeeklyPercents={myWeeklyPercents}
               partnerTodayPercent={realPartnerTodayPercent}
-              partnerWeeklyPercents={realPartnerWeekly}
               profile={coupleProfile}
               partnerCheckins={partnerCheckins}
               nudges={nudges}
-              chatMessages={coupleChat}
               onUpdateProfile={handleUpdateCoupleProfile}
               onReactCheckin={handleReactCheckin}
               onSendNudge={handleSendNudge}
+            />
+          )}
+
+          {activeTab === 'chat' && (
+            <ChatView
+              key="chat-tab"
+              profile={coupleProfile}
+              chatMessages={coupleChat}
               onSendChat={handleSendCoupleChat}
+              onGoToCouple={() => setActiveTab('couple')}
             />
           )}
 
           {activeTab === 'bear3d' && <Bear3DStudio key="bear3d-tab" />}
 
           {activeTab === 'summary' && (
-            <SummaryView key="summary-tab" t={t} tasks={myTasks} logs={myLogs} />
+            <SummaryView
+              key="summary-tab"
+              t={t}
+              tasks={myTasks}
+              logs={myLogs}
+              coupleProfile={coupleProfile}
+              myPercent={myPercent}
+              myWeeklyPercents={myWeeklyPercents}
+              partnerTodayPercent={realPartnerTodayPercent}
+              partnerWeeklyPercents={realPartnerWeekly}
+            />
           )}
 
           {activeTab === 'settings' && (
@@ -980,10 +1061,10 @@ export function App() {
 
         {/* Floating iOS Glassmorphic Bottom Navigation */}
         <div className="pointer-events-none fixed bottom-3 z-30 flex w-full max-w-[430px] justify-center px-3">
-          <nav className="pointer-events-auto relative grid w-full grid-cols-5 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
+          <nav className="pointer-events-auto relative grid w-full grid-cols-6 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
             {/* Sliding active background pill */}
             <div
-              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/5)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/6)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
               style={{ transform: `translateX(${activeTabIndex * 100}%)` }}
             />
 
@@ -991,6 +1072,7 @@ export function App() {
               [
                 { id: 'today', label: t.navToday, icon: 'check_circle' },
                 { id: 'couple', label: 'Couple', icon: 'favorite' },
+                { id: 'chat', label: 'Nhắn tin', icon: 'chat_bubble' },
                 { id: 'bear3d', label: 'Gấu 3D', icon: 'pets' },
                 { id: 'summary', label: t.navSummary, icon: 'bar_chart' },
                 { id: 'settings', label: t.navSettings, icon: 'settings' },
@@ -1002,11 +1084,11 @@ export function App() {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`ios-press relative z-10 flex flex-col items-center gap-0.5 rounded-[20px] py-1.5 text-[10px] font-bold transition-colors duration-300 ${
+                  className={`ios-press relative z-10 flex flex-col items-center gap-0.5 rounded-[20px] py-1.5 text-[9.5px] font-bold transition-colors duration-300 ${
                     active ? 'text-blue-900' : 'text-slate-400 hover:text-pink-400'
                   }`}
                 >
-                  <GIcon name={tab.icon} size={22} filled={active} />
+                  <GIcon name={tab.icon} size={20} filled={active} />
                   <span>{tab.label}</span>
                 </button>
               );

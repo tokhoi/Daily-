@@ -93,5 +93,5 @@ export interface TaskLog {
 
 export type SyncState = 'local' | 'syncing' | 'synced' | 'error';
 
-export type AppTab = 'today' | 'couple' | 'bear3d' | 'summary' | 'settings';
+export type AppTab = 'today' | 'couple' | 'chat' | 'bear3d' | 'summary' | 'settings';
 export type SummaryPeriod = 'week' | 'month' | 'year';

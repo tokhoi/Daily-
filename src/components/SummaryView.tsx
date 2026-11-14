@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { Translations } from '../i18n/translations';
-import type { SummaryPeriod, Task, TaskLog } from '../types/habit';
+import type { CoupleProfile, SummaryPeriod, Task, TaskLog } from '../types/habit';
 import {
   addDays,
   getLogCompletionRatio,
@@ -16,9 +16,23 @@ interface SummaryViewProps {
   t: Translations;
   tasks: Task[];
   logs: TaskLog[];
+  coupleProfile?: CoupleProfile;
+  myPercent?: number;
+  myWeeklyPercents?: { label: string; percent: number }[];
+  partnerTodayPercent?: number;
+  partnerWeeklyPercents?: number[];
 }
 
-export const SummaryView: React.FC<SummaryViewProps> = ({ t, tasks, logs }) => {
+export const SummaryView: React.FC<SummaryViewProps> = ({
+  t,
+  tasks,
+  logs,
+  coupleProfile,
+  myPercent = 0,
+  myWeeklyPercents = [],
+  partnerTodayPercent,
+  partnerWeeklyPercents,
+}) => {
   const [period, setPeriod] = useState<SummaryPeriod>('year');
   const [anchorDate, setAnchorDate] = useState<Date>(() => new Date());
 
@@ -78,8 +92,117 @@ export const SummaryView: React.FC<SummaryViewProps> = ({ t, tasks, logs }) => {
 
   const periodIndex = period === 'week' ? 0 : period === 'month' ? 1 : 2;
 
+  const partnerWeekly =
+    partnerWeeklyPercents && partnerWeeklyPercents.length === 7
+      ? partnerWeeklyPercents
+      : [0, 0, 0, 0, 0, 0, 0];
+  const partnerToday =
+    typeof partnerTodayPercent === 'number'
+      ? partnerTodayPercent
+      : (partnerWeekly[partnerWeekly.length - 1] ?? 0);
+  const myWeekAvg =
+    myWeeklyPercents.length > 0
+      ? Math.round(
+          myWeeklyPercents.reduce((s, d) => s + d.percent, 0) / myWeeklyPercents.length
+        )
+      : myPercent;
+  const partnerWeekAvg = Math.round(
+    partnerWeekly.reduce((s, v) => s + v, 0) / partnerWeekly.length
+  );
+
   return (
     <div className="animate-ios-page space-y-4 pb-6">
+      {/* Couple 2-Person Comparison Stats (shown only when paired) */}
+      {coupleProfile?.isPaired && (
+        <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
+              Thống kê so sánh 2 người (7 ngày)
+            </h3>
+            <span className="rounded-full bg-pink-50 px-2.5 py-0.5 text-[10px] font-bold text-pink-500">
+              {myWeekAvg >= partnerWeekAvg
+                ? `${coupleProfile.myName} đang dẫn`
+                : `${coupleProfile.partnerName} đang dẫn`}
+            </span>
+          </div>
+
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-pink-50/70 p-2.5 text-center">
+              <p className="text-[10px] font-bold text-slate-400">
+                Hôm nay ({coupleProfile.myName})
+              </p>
+              <p className="mt-0.5 text-base font-extrabold text-pink-500">{myPercent}%</p>
+            </div>
+            <div className="rounded-2xl bg-blue-50/60 p-2.5 text-center">
+              <p className="text-[10px] font-bold text-slate-400">
+                Hôm nay ({coupleProfile.partnerName})
+              </p>
+              <p className="mt-0.5 text-base font-extrabold text-blue-900">{partnerToday}%</p>
+            </div>
+          </div>
+
+          <div className="mb-4 grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-2xl bg-pink-50/70 p-2.5">
+              <p className="text-[10px] font-bold text-slate-400">
+                TB Tuần ({coupleProfile.myName})
+              </p>
+              <p className="mt-0.5 text-sm font-extrabold text-pink-500">{myWeekAvg}%</p>
+            </div>
+            <div className="rounded-2xl bg-pink-50/70 p-2.5">
+              <p className="text-[10px] font-bold text-slate-400">Chênh lệch</p>
+              <p className="mt-0.5 text-sm font-extrabold text-blue-950">
+                {myWeekAvg >= partnerWeekAvg
+                  ? `+${myWeekAvg - partnerWeekAvg}%`
+                  : `${myWeekAvg - partnerWeekAvg}%`}
+              </p>
+            </div>
+            <div className="rounded-2xl bg-blue-50/60 p-2.5">
+              <p className="text-[10px] font-bold text-slate-400">
+                TB Tuần ({coupleProfile.partnerName})
+              </p>
+              <p className="mt-0.5 text-sm font-extrabold text-blue-900">{partnerWeekAvg}%</p>
+            </div>
+          </div>
+
+          {myWeeklyPercents.length > 0 && (
+            <>
+              <div className="flex h-28 items-end justify-between gap-2 px-1">
+                {myWeeklyPercents.map((day, idx) => {
+                  const pVal = partnerWeekly[idx] ?? 0;
+                  return (
+                    <div key={day.label} className="flex flex-1 flex-col items-center gap-1.5">
+                      <div className="flex h-20 w-full items-end justify-center gap-1">
+                        <div
+                          className="w-2.5 rounded-t-full bg-pink-400 transition-all duration-500"
+                          style={{ height: `${Math.max(8, day.percent)}%` }}
+                          title={`${coupleProfile.myName}: ${day.percent}%`}
+                        />
+                        <div
+                          className="w-2.5 rounded-t-full bg-blue-900 transition-all duration-500"
+                          style={{ height: `${Math.max(8, pVal)}%` }}
+                          title={`${coupleProfile.partnerName}: ${pVal}%`}
+                        />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400">{day.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-3 flex justify-center gap-4 text-[11px] font-bold">
+                <span className="flex items-center gap-1.5 text-blue-950">
+                  <span className="h-2.5 w-2.5 rounded-full bg-pink-400" />
+                  {coupleProfile.myName}
+                </span>
+                <span className="flex items-center gap-1.5 text-blue-950">
+                  <span className="h-2.5 w-2.5 rounded-full bg-blue-900" />
+                  {coupleProfile.partnerName}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      )}
       {/* iOS Sliding Segmented Control */}
       <div className="relative grid grid-cols-3 rounded-2xl border border-pink-100 bg-white p-1 shadow-[0_4px_20px_-6px_rgba(236,72,153,0.10)]">
         {/* Sliding pill */}

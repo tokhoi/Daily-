@@ -20,6 +20,23 @@ export type Bear3DAnim =
 
 export type Bear3DVariant = 'pink' | 'blue';
 
+const BEAR_ANIM_LABELS: Record<Bear3DAnim, string> = {
+  idle: 'đang thở nhẹ',
+  clap: 'đang vỗ tay vui mừng',
+  wave: 'đang vẫy chào',
+  poke: 'đang nhắc bạn hoàn thành việc',
+  dance: 'đang nhảy múa',
+  sleep: 'đang ngủ',
+  flex: 'đang tạo dáng khỏe khoắn',
+  cry: 'đang buồn và rơi nước mắt',
+  heart_pose: 'đang tạo hình trái tim',
+  dab: 'đang tạo dáng vui nhộn',
+  surprised: 'đang ngạc nhiên',
+  shy: 'đang ngượng ngùng',
+  think: 'đang suy nghĩ',
+  cheer: 'đang cổ vũ bạn',
+};
+
 interface Bear3DCanvasProps {
   anim: Bear3DAnim;
   variant: Bear3DVariant;
@@ -195,7 +212,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     );
 
     const furMat = new THREE.MeshPhysicalMaterial({
-      color: variant === 'pink' ? 0xf9a8d4 : 0x7dd3fc,
+      color: variantRef.current === 'pink' ? 0xf9a8d4 : 0x7dd3fc,
       map: plushTex,
       roughness: 0.78,
       sheen: 0.9,
@@ -204,7 +221,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     });
 
     const accentFurMat = new THREE.MeshPhysicalMaterial({
-      color: variant === 'pink' ? 0xf472b6 : 0x3b82f6,
+      color: variantRef.current === 'pink' ? 0xf472b6 : 0x3b82f6,
       map: plushTex,
       roughness: 0.72,
       sheen: 0.8,
@@ -221,7 +238,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     });
 
     const scarfMat = new THREE.MeshPhysicalMaterial({
-      color: variant === 'pink' ? 0x1e3a8a : 0xf472b6,
+      color: variantRef.current === 'pink' ? 0x1e3a8a : 0xf472b6,
       map: plushTex,
       roughness: 0.68,
       sheen: 0.7,
@@ -458,7 +475,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     thoughtGroup.visible = false;
     headGroup.add(thoughtGroup);
 
-    // 2-Segment Articulated Arms (Shoulder -> Upper Arm -> Elbow -> Forearm + Paw)
+    // Soft, rounded arms with simple mitten hands.
     const upperArmGeo = new THREE.CapsuleGeometry(0.155, 0.16, 14, 20);
     const forearmGeo = new THREE.CapsuleGeometry(0.145, 0.16, 14, 20);
 
@@ -473,20 +490,17 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
 
       const elbow = new THREE.Group();
       elbow.position.set(side * 0.11, -0.26, 0.04);
-      const forearmMesh = new THREE.Mesh(forearmGeo, accentFurMat);
+      const forearmMesh = new THREE.Mesh(forearmGeo, furMat);
       forearmMesh.position.set(0, -0.12, 0.04);
-      const paw = new THREE.Group();
-      paw.position.set(0, -0.27, 0.07);
-      const palm = new THREE.Mesh(new THREE.SphereGeometry(0.17, 20, 18), furMat);
-      palm.scale.set(1.05, 0.88, 0.78);
-      const palmPad = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 12), bellyMat);
-      palmPad.scale.set(1, 0.82, 0.34);
-      palmPad.position.set(0, -0.015, 0.12);
-      paw.add(palm, palmPad);
-      elbow.add(forearmMesh, paw);
+      const hand = new THREE.Group();
+      hand.position.set(0, -0.28, 0.07);
+      const mitten = new THREE.Mesh(new THREE.SphereGeometry(0.195, 24, 20), bellyMat);
+      mitten.scale.set(1.04, 1, 0.96);
+      hand.add(mitten);
+      elbow.add(forearmMesh, hand);
 
       shoulder.add(elbow);
-      return { shoulder, elbow, paw };
+      return { shoulder, elbow };
     };
 
     const leftArm = makeArticulatedArm(-1);
@@ -568,15 +582,21 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     dom.addEventListener('pointercancel', onPointerCancel);
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') targetRotY -= 0.28;
-      if (e.key === 'ArrowRight') targetRotY += 0.28;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        targetRotY -= 0.28;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        targetRotY += 0.28;
+      }
       if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
         squashRef.current = 1;
         onTapRef.current?.();
       }
     };
-    dom.addEventListener('keydown', onKeyDown);
+    container.addEventListener('keydown', onKeyDown);
 
     const resizeRenderer = () => {
       const nextWidth = container.clientWidth;
@@ -620,9 +640,9 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       leftEar.rotation.set(0, 0, 0.32);
       rightEar.rotation.set(0, 0, -0.32);
 
-      leftArm.shoulder.rotation.set(0, 0, 0);
+      leftArm.shoulder.rotation.set(0, 0, -0.82);
       leftArm.elbow.rotation.set(0, 0, 0);
-      rightArm.shoulder.rotation.set(0, 0, 0);
+      rightArm.shoulder.rotation.set(0, 0, 0.82);
       rightArm.elbow.rotation.set(0, 0, 0);
 
       leftLeg.rotation.set(0, 0, 0);
@@ -649,8 +669,8 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
         headGroup.rotation.z = Math.sin(t * 1.3) * 0.05;
         leftEar.rotation.z = 0.32 + Math.sin(t * 2.5) * 0.05;
         rightEar.rotation.z = -0.32 - Math.sin(t * 2.5) * 0.05;
-        leftArm.shoulder.rotation.z = -0.08 + Math.sin(t * 2.1) * 0.05;
-        rightArm.shoulder.rotation.z = 0.08 - Math.sin(t * 2.1) * 0.05;
+      leftArm.shoulder.rotation.z = -0.92 + Math.sin(t * 2.1) * 0.05;
+      rightArm.shoulder.rotation.z = 0.92 - Math.sin(t * 2.1) * 0.05;
         const blinkPhase = t % 3.4;
         const blink = Math.max(0, 1 - Math.abs(blinkPhase - 3.25) / 0.09);
         leftEye.scale.y = Math.max(0.12, 1 - blink * 0.9);
@@ -828,7 +848,7 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
       dom.removeEventListener('pointermove', onPointerMove);
       dom.removeEventListener('pointerup', onPointerUp);
       dom.removeEventListener('pointercancel', onPointerCancel);
-      dom.removeEventListener('keydown', onKeyDown);
+      container.removeEventListener('keydown', onKeyDown);
       resizeObserver.disconnect();
       motionQuery.removeEventListener('change', onMotionPreferenceChange);
 
@@ -857,8 +877,201 @@ export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
     <div
       ref={mountRef}
       style={{ height }}
-      className="w-full cursor-grab touch-none active:cursor-grabbing"
+      role="group"
+      aria-label={`Bé Gấu ${BEAR_ANIM_LABELS[anim]}. Dùng phím mũi tên để xoay, Enter hoặc dấu cách để chạm.`}
+      aria-keyshortcuts="ArrowLeft ArrowRight Enter Space"
+      tabIndex={0}
+      className="w-full cursor-grab touch-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-pink-400 active:cursor-grabbing"
     />
+  );
+};
+
+type Bear2DCanvasProps = Bear3DCanvasProps;
+
+const Bear2DCanvas: React.FC<Bear2DCanvasProps> = ({
+  anim,
+  variant,
+  height = 285,
+  onTapBear,
+}) => {
+  const gradientId = `bear-fur-${React.useId().replace(/:/g, '')}`;
+  const furColors =
+    variant === 'pink'
+      ? { light: '#FBCFE8', main: '#F472B6', dark: '#DB5B9D', scarf: '#1E3A8A' }
+      : { light: '#BAE6FD', main: '#38BDF8', dark: '#1685C0', scarf: '#DB5B9D' };
+  const armPose: Record<Bear3DAnim, [number, number]> = {
+    idle: [0, 0],
+    clap: [-166, 166],
+    wave: [0, -120],
+    poke: [-135, 135],
+    dance: [-158, 145],
+    sleep: [0, 0],
+    flex: [-132, 132],
+    cry: [118, -118],
+    heart_pose: [-166, 166],
+    dab: [-52, -126],
+    surprised: [-124, 124],
+    shy: [-145, 145],
+    think: [0, -82],
+    cheer: [-132, 132],
+  };
+  const [leftArmAngle, rightArmAngle] = armPose[anim];
+  const eyesClosed = anim === 'sleep' || anim === 'shy';
+  const blush = anim === 'shy' ? 0.9 : anim === 'surprised' ? 0.28 : 0.55;
+  const showHearts = ['clap', 'dance', 'heart_pose', 'shy', 'cheer'].includes(anim);
+  const openMouth = ['clap', 'dance', 'surprised', 'cheer'].includes(anim);
+  const motionClass =
+    anim === 'sleep'
+      ? 'bear2d-motion--sleep'
+      : anim === 'dance'
+        ? 'bear2d-motion--dance'
+        : 'bear2d-motion--float';
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onTapBear?.();
+    }
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`Chạm để cưng nựng Bé Gấu ${BEAR_ANIM_LABELS[anim]}.`}
+      onClick={onTapBear}
+      onKeyDown={handleKeyDown}
+      style={{ height }}
+      className="flex w-full cursor-pointer items-center justify-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-pink-400"
+    >
+      <svg
+        viewBox="0 0 320 280"
+        width="100%"
+        height="100%"
+        aria-hidden="true"
+        className="bear2d-character overflow-visible"
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0.9" y2="1">
+            <stop offset="0%" stopColor={furColors.light} />
+            <stop offset="58%" stopColor={furColors.main} />
+            <stop offset="100%" stopColor={furColors.dark} />
+          </linearGradient>
+          <filter id={`${gradientId}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
+            <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#6b3153" floodOpacity="0.2" />
+          </filter>
+        </defs>
+
+        <ellipse cx="160" cy="257" rx="70" ry="10" fill="#1e3a8a" opacity="0.12" />
+        <g className={`bear2d-motion ${motionClass}`} filter={`url(#${gradientId}-shadow)`}>
+          <g transform={`rotate(${leftArmAngle} 112 174)`}>
+            <path d="M112 173 Q84 177 59 197" fill="none" stroke={furColors.dark} strokeWidth="25" strokeLinecap="round" />
+            <path d="M112 171 Q84 175 59 195" fill="none" stroke={`url(#${gradientId})`} strokeWidth="20" strokeLinecap="round" />
+            <circle cx="57" cy="195" r="15" fill="#FFF5F8" stroke="#E9DCE5" strokeWidth="1.5" />
+          </g>
+          <g transform={`rotate(${rightArmAngle} 208 174)`}>
+            <path d="M208 173 Q236 177 261 197" fill="none" stroke={furColors.dark} strokeWidth="25" strokeLinecap="round" />
+            <path d="M208 171 Q236 175 261 195" fill="none" stroke={`url(#${gradientId})`} strokeWidth="20" strokeLinecap="round" />
+            <circle cx="263" cy="195" r="15" fill="#FFF5F8" stroke="#E9DCE5" strokeWidth="1.5" />
+          </g>
+
+          <ellipse cx="132" cy="239" rx="24" ry="16" fill={furColors.dark} />
+          <ellipse cx="188" cy="239" rx="24" ry="16" fill={furColors.dark} />
+          <ellipse cx="132" cy="237" rx="20" ry="12" fill={furColors.main} />
+          <ellipse cx="188" cy="237" rx="20" ry="12" fill={furColors.main} />
+          <ellipse cx="132" cy="240" rx="9" ry="4" fill="#FFF5F8" opacity="0.92" />
+          <ellipse cx="188" cy="240" rx="9" ry="4" fill="#FFF5F8" opacity="0.92" />
+
+          <ellipse cx="160" cy="204" rx="55" ry="45" fill={furColors.dark} />
+          <ellipse cx="160" cy="201" rx="51" ry="43" fill={`url(#${gradientId})`} />
+          <ellipse cx="160" cy="207" rx="28" ry="27" fill="#FFF5F8" opacity="0.95" />
+
+          <path d="M125 158 Q160 175 195 158 L191 169 Q160 184 129 169Z" fill={furColors.scarf} />
+          <circle cx="181" cy="169" r="8" fill={furColors.scarf} />
+
+          <g className="bear2d-head">
+            <circle cx="112" cy="60" r="25" fill={furColors.dark} />
+            <circle cx="208" cy="60" r="25" fill={furColors.dark} />
+            <circle cx="112" cy="60" r="19" fill={`url(#${gradientId})`} />
+            <circle cx="208" cy="60" r="19" fill={`url(#${gradientId})`} />
+            <circle cx="112" cy="62" r="11" fill="#FFF5F8" opacity="0.92" />
+            <circle cx="208" cy="62" r="11" fill="#FFF5F8" opacity="0.92" />
+
+            <circle cx="160" cy="111" r="65" fill={furColors.dark} />
+            <circle cx="160" cy="106" r="61" fill={`url(#${gradientId})`} />
+            <ellipse cx="160" cy="132" rx="25" ry="18" fill="#FFF5F8" />
+
+            <ellipse cx="160" cy="120" rx="7" ry="5" fill="#1E3A8A" />
+            <ellipse cx="157.5" cy="118.5" rx="2" ry="1.4" fill="#FFFFFF" />
+
+            <ellipse cx="124" cy="132" rx="12" ry="7" fill="#FB7185" opacity={blush} />
+            <ellipse cx="196" cy="132" rx="12" ry="7" fill="#FB7185" opacity={blush} />
+
+            {eyesClosed ? (
+              <g fill="none" stroke="#172554" strokeWidth="4" strokeLinecap="round">
+                <path d="M132 105 Q140 112 148 105" />
+                <path d="M172 105 Q180 112 188 105" />
+              </g>
+            ) : (
+              <g>
+                <ellipse cx="140" cy="101" rx={anim === 'surprised' ? 7 : 5.5} ry={anim === 'surprised' ? 9 : 7.5} fill="#172554" />
+                <ellipse cx="180" cy="101" rx={anim === 'surprised' ? 7 : 5.5} ry={anim === 'surprised' ? 9 : 7.5} fill="#172554" />
+                <circle cx="138" cy="98" r="2" fill="#FFFFFF" />
+                <circle cx="178" cy="98" r="2" fill="#FFFFFF" />
+              </g>
+            )}
+
+            {anim === 'surprised' ? (
+              <ellipse cx="160" cy="143" rx="8" ry="10" fill="#542C42" />
+            ) : openMouth ? (
+              <path d="M151 143 Q160 150 169 143 Q169 157 160 157 Q151 157 151 143Z" fill="#542C42" />
+            ) : anim === 'cry' ? (
+              <path d="M152 149 Q160 140 168 149" fill="none" stroke="#542C42" strokeWidth="3" strokeLinecap="round" />
+            ) : (
+              <path d="M151 143 Q160 151 169 143" fill="none" stroke="#542C42" strokeWidth="3" strokeLinecap="round" />
+            )}
+
+            {anim === 'surprised' && (
+              <g fill="none" stroke="#6B3153" strokeWidth="4" strokeLinecap="round">
+                <path d="M132 86 Q140 81 148 86" />
+                <path d="M172 86 Q180 81 188 86" />
+              </g>
+            )}
+            {anim === 'cry' && (
+              <g className="bear2d-tears" fill="#60A5FA" opacity="0.9">
+                <path d="M137 112 C131 122 132 128 137 129 C142 128 143 122 137 112Z" />
+                <path d="M183 112 C177 122 178 128 183 129 C188 128 189 122 183 112Z" />
+              </g>
+            )}
+          </g>
+        </g>
+
+        {showHearts && (
+          <g className="bear2d-hearts" fill="#F43F5E">
+            <path d="M99 49 C95 43 86 47 89 54 L99 63 L109 54 C112 47 103 43 99 49Z" />
+            <path d="M223 77 C219 71 210 75 213 82 L223 91 L233 82 C236 75 227 71 223 77Z" opacity="0.8" />
+          </g>
+        )}
+        {anim === 'surprised' && (
+          <g fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2">
+            <rect x="219" y="35" width="7" height="22" rx="3.5" />
+            <circle cx="222.5" cy="64" r="4" />
+          </g>
+        )}
+        {anim === 'think' && (
+          <g>
+            <ellipse cx="226" cy="52" rx="22" ry="14" fill="#FFFFFF" opacity="0.95" />
+            <circle cx="205" cy="69" r="5" fill="#FFFFFF" />
+            <circle cx="220" cy="52" r="2" fill="#1E3A8A" />
+            <circle cx="226" cy="52" r="2" fill="#1E3A8A" />
+            <circle cx="232" cy="52" r="2" fill="#1E3A8A" />
+          </g>
+        )}
+        {anim === 'sleep' && (
+          <text x="222" y="52" fill="#1E3A8A" fontSize="17" fontWeight="800" className="bear2d-zzz">Zzz</text>
+        )}
+      </svg>
+    </div>
   );
 };
 
@@ -878,6 +1091,10 @@ const ANIM_PRESETS: {
   { id: 'cry', label: 'Tụt mood', meme: 'Cứu bé với, deadline dí quá trời 😭', icon: 'rainy' },
   { id: 'heart_pose', label: 'Bắn tim', meme: 'Mãi keo nha, yêu cậu x1000 🫶💖', icon: 'favorite' },
   { id: 'dab', label: 'Slay / Dab', meme: 'Slayyyy! Không làm mà đòi có ăn thì... 😎', icon: 'flag' },
+  { id: 'surprised', label: 'Ủa, bất ngờ!', meme: 'Ủa gì vậy trời, gấu bất ngờ thiệt đó! 😲', icon: 'auto_awesome' },
+  { id: 'shy', label: 'Ngại quá đi', meme: 'Được khen cái gấu ngại ngang luôn á 🥰', icon: 'favorite' },
+  { id: 'think', label: 'Để gấu nghĩ', meme: 'Hmm, để gấu suy nghĩ cùng bạn nha 🤔', icon: 'edit_note' },
+  { id: 'cheer', label: 'Cổ vũ bạn', meme: 'Bạn làm được mà! Gấu cổ vũ hết mình nè 📣', icon: 'wb_sunny' },
 ];
 
 interface BearChatMessage {
@@ -894,6 +1111,9 @@ const QUICK_CHAT_PROMPTS = [
   'Bắn tim đi gấu',
   'Flex nhẹ cái xem',
   'Deadline dí quá cứu bé',
+  'Gấu ngại quá',
+  'Ủa bất ngờ vậy',
+  'Nghĩ giúp mình đi',
 ];
 
 function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
@@ -903,6 +1123,18 @@ function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
   }
   if (lower.includes('cứu') || lower.includes('deadline') || lower.includes('khóc') || lower.includes('buồn')) {
     return { reply: 'Á à tụt mood hả 😭 Thở sâu 3 cái rồi gấu cổ vũ bạn làm tiếp nha!', anim: 'cry' };
+  }
+  if (lower.includes('ngại') || lower.includes('xấu hổ') || lower.includes('thẹn')) {
+    return { reply: 'Được khen cái gấu ngại ngang luôn á 🥰', anim: 'shy' };
+  }
+  if (lower.includes('bất ngờ') || lower.includes('ngạc nhiên') || lower.includes('ủa') || lower.includes('wow')) {
+    return { reply: 'Ủa gì vậy trời, gấu bất ngờ thiệt đó! 😲', anim: 'surprised' };
+  }
+  if (lower.includes('nghĩ') || lower.includes('phân vân') || lower.includes('suy nghĩ')) {
+    return { reply: 'Hmm, để gấu suy nghĩ cùng bạn nha 🤔', anim: 'think' };
+  }
+  if (lower.includes('cổ vũ') || lower.includes('động viên') || lower.includes('cố lên') || lower.includes('nản')) {
+    return { reply: 'Bạn làm được mà! Gấu cổ vũ hết mình nè 📣', anim: 'cheer' };
   }
   if (lower.includes('tim') || lower.includes('yêu') || lower.includes('keo')) {
     return { reply: 'Bắn tim chéo chéo!! Mãi keo nha bạn tui 🫶💖', anim: 'heart_pose' };
@@ -934,6 +1166,7 @@ function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
 export const Bear3DStudio: React.FC = () => {
   const [anim, setAnim] = useState<Bear3DAnim>('idle');
   const [variant, setVariant] = useState<Bear3DVariant>('pink');
+  const [look, setLook] = useState<'game' | 'illustration'>('game');
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<BearChatMessage[]>([
     {
@@ -1006,21 +1239,48 @@ export const Bear3DStudio: React.FC = () => {
           </div>
         </div>
 
+        <div className="mt-3 flex items-center justify-between rounded-2xl border border-pink-100 bg-white/75 p-1">
+          <span className="pl-2 text-[10px] font-bold text-slate-500">Kiểu tạo hình</span>
+          <div className="flex gap-1">
+            <button
+              type="button"
+              aria-pressed={look === 'game'}
+              onClick={() => setLook('game')}
+              className={`ios-press rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                look === 'game' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Gấu 3D
+            </button>
+            <button
+              type="button"
+              aria-pressed={look === 'illustration'}
+              onClick={() => setLook('illustration')}
+              className={`ios-press rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
+                look === 'illustration' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
+              }`}
+            >
+              Minh họa 2D
+            </button>
+          </div>
+        </div>
+
         {latestBearMsg && (
           <div className="mt-2.5 rounded-2xl border border-pink-100 bg-white/90 px-3 py-2 text-center text-xs font-semibold text-blue-950 shadow-xs">
             {latestBearMsg}
           </div>
         )}
 
-        <Bear3DCanvas
-          anim={anim}
-          variant={variant}
-          height={285}
-          onTapBear={() => {}}
-        />
+        {look === 'game' ? (
+          <Bear3DCanvas anim={anim} variant={variant} height={285} onTapBear={() => {}} />
+        ) : (
+          <Bear2DCanvas anim={anim} variant={variant} height={285} onTapBear={() => {}} />
+        )}
 
         <p className="text-center text-[11px] font-semibold text-slate-400">
-          Kéo để xoay hoặc chạm vào bé gấu để nựng
+          {look === 'game'
+            ? 'Kéo để xoay hoặc chạm vào bé gấu để nựng'
+            : 'Chạm vào bé gấu để nựng và ngắm biểu cảm'}
         </p>
       </div>
 
@@ -1036,6 +1296,7 @@ export const Bear3DStudio: React.FC = () => {
               <button
                 key={preset.id}
                 type="button"
+              aria-pressed={active}
                 onClick={() => handleSelectAnim(preset)}
                 className={`ios-press flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left transition ${
                   active

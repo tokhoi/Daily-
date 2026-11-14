@@ -17,6 +17,9 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'daily_miniapp_current_user_v1',
 };
 
+export const DEFAULT_SHEET_URL =
+  'https://script.google.com/macros/s/AKfycbwukWmCUsfGJzMg1-v7QBL2ugzHdRByKH5ApxtxuzEqXcoayOYJ0bBplDTazv1SuVAuvQ/exec';
+
 export function loadCurrentUser(): AppUser | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
@@ -79,7 +82,7 @@ export function saveLocalData(tasks: Task[], logs: TaskLog[]): void {
 }
 
 export function getSavedSheetUrl(): string {
-  return localStorage.getItem(STORAGE_KEYS.SHEET_URL) || '';
+  return localStorage.getItem(STORAGE_KEYS.SHEET_URL) || DEFAULT_SHEET_URL;
 }
 
 export function saveSheetUrl(url: string): void {
