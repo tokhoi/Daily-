@@ -325,17 +325,42 @@ export function App() {
           : reversePartner;
 
       if (mergedUser) {
+        const nextIsPaired = Boolean(mergedUser.partner_id && mergedUser.room_code);
+        const nextPartnerCode = (mergedUser.room_code || coupleProfile.partnerCode || '').toUpperCase();
+        const nextPartnerName =
+          partnerUser?.display_name ||
+          mergedUser.partner_id ||
+          (mergedUser.partner_id ? coupleProfile.partnerName : '');
+
+        const hydratedProfile: CoupleProfile = {
+          ...coupleProfile,
+          myName: mergedUser.display_name || coupleProfile.myName,
+          myCode: myCodeUpper || coupleProfile.myCode,
+          partnerCode: nextPartnerCode,
+          partnerName: nextPartnerName,
+          isPaired: nextIsPaired,
+        };
+
         setCoupleProfile((prev) => ({
           ...prev,
-          myName: mergedUser.display_name || prev.myName,
-          myCode: myCodeUpper || prev.myCode,
-          partnerCode: (mergedUser.room_code || prev.partnerCode).toUpperCase(),
-          partnerName:
-            partnerUser?.display_name ||
-            mergedUser.partner_id ||
-            (mergedUser.partner_id ? prev.partnerName : ''),
-          isPaired: Boolean(mergedUser.partner_id && mergedUser.room_code),
+          myName: hydratedProfile.myName,
+          myCode: hydratedProfile.myCode,
+          partnerCode: hydratedProfile.partnerCode,
+          partnerName: hydratedProfile.partnerName,
+          isPaired: hydratedProfile.isPaired,
         }));
+
+        const myServerProfile = remote.coupleProfiles?.find(
+          (p) => myCodeUpper && p.myCode.toUpperCase() === myCodeUpper
+        );
+        if (
+          nextIsPaired &&
+          (!myServerProfile ||
+            !myServerProfile.isPaired ||
+            myServerProfile.partnerCode.toUpperCase() !== nextPartnerCode)
+        ) {
+          syncCoupleProfileToSheets(url, hydratedProfile).catch(console.error);
+        }
       }
 
       const activeRoom = mergedUser?.partner_id ? mergedUser.room_code?.toUpperCase() : undefined;

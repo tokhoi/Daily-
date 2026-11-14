@@ -360,6 +360,25 @@ function doPost(e) {
       const profile = body.profile || {};
       const rowId = profile.id || profile.myCode || 'default';
       upsertRow(sheet, COUPLE_PROFILE_HEADERS, 'id', rowId, Object.assign({ id: rowId }, profile));
+
+      // Also sync the partner's row in couple_profiles when pairing
+      if (profile.isPaired === true && profile.partnerCode) {
+        const profiles = sheetToObjects(sheet, COUPLE_PROFILE_HEADERS);
+        const partnerCodeUpper = String(profile.partnerCode).trim().toUpperCase();
+        const partnerRow = profiles.find(
+          (p) =>
+            String(p.id || '').toUpperCase() !== String(rowId).toUpperCase() &&
+            (String(p.myCode || '').toUpperCase() === partnerCodeUpper ||
+              String(p.partnerCode || '').toUpperCase() === partnerCodeUpper)
+        );
+        if (partnerRow) {
+          partnerRow.isPaired = true;
+          partnerRow.partnerCode = partnerCodeUpper;
+          if (profile.myName) partnerRow.partnerName = profile.myName;
+          partnerRow.updated_at = new Date().toISOString();
+          upsertRow(sheet, COUPLE_PROFILE_HEADERS, 'id', partnerRow.id, partnerRow);
+        }
+      }
       return jsonResponse({ ok: true });
     }
 
