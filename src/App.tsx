@@ -34,7 +34,11 @@ import {
   saveDailyNotes,
   saveLocalData,
   saveSheetUrl,
+  syncCoupleChatToSheets,
+  syncCoupleNudgeToSheets,
+  syncCoupleProfileToSheets,
   syncLogToSheets,
+  syncPartnerCheckinToSheets,
   syncTaskToSheets,
 } from './services/sheetsSync';
 import type {
@@ -254,6 +258,9 @@ export function App() {
         setTasks(remote.tasks);
         setLogs(remote.logs);
       }
+      if (remote.coupleChat) setCoupleChat(remote.coupleChat);
+      if (remote.coupleNudges) setNudges(remote.coupleNudges);
+      if (remote.partnerCheckins) setPartnerCheckins(remote.partnerCheckins);
       setSyncState('synced');
     } catch (err) {
       setSyncState('error');
@@ -499,8 +506,18 @@ export function App() {
 
   const handleReactCheckin = (id: string, reaction: 'heart' | 'clap' | 'fire') => {
     setPartnerCheckins((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, reaction } : item))
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, reaction };
+        if (sheetUrl) syncPartnerCheckinToSheets(sheetUrl, next).catch(console.error);
+        return next;
+      })
     );
+  };
+
+  const handleUpdateCoupleProfile = (next: CoupleProfile) => {
+    setCoupleProfile(next);
+    if (sheetUrl) syncCoupleProfileToSheets(sheetUrl, next).catch(console.error);
   };
 
   const handleSendNudge = (message: string) => {
@@ -514,6 +531,7 @@ export function App() {
       }),
     };
     setNudges((prev) => [newNudge, ...prev].slice(0, 12));
+    if (sheetUrl) syncCoupleNudgeToSheets(sheetUrl, newNudge).catch(console.error);
   };
 
   const handleSendCoupleChat = (text: string) => {
@@ -521,10 +539,14 @@ export function App() {
       hour: '2-digit',
       minute: '2-digit',
     });
-    setCoupleChat((prev) => [
-      ...prev,
-      { id: `chat_${Date.now()}`, sender: 'me', text, createdAt: now },
-    ]);
+    const newMsg: CoupleChatMessage = {
+      id: `chat_${Date.now()}`,
+      sender: 'me',
+      text,
+      createdAt: now,
+    };
+    setCoupleChat((prev) => [...prev, newMsg]);
+    if (sheetUrl) syncCoupleChatToSheets(sheetUrl, newMsg).catch(console.error);
   };
 
   const myWeeklyPercents = Array.from({ length: 7 }, (_, i) => {
@@ -736,7 +758,7 @@ export function App() {
               partnerCheckins={partnerCheckins}
               nudges={nudges}
               chatMessages={coupleChat}
-              onUpdateProfile={setCoupleProfile}
+              onUpdateProfile={handleUpdateCoupleProfile}
               onReactCheckin={handleReactCheckin}
               onSendNudge={handleSendNudge}
               onSendChat={handleSendCoupleChat}

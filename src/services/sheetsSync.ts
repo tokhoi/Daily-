@@ -1,4 +1,12 @@
-import type { DailyNote, Task, TaskLog } from '../types/habit';
+import type {
+  CoupleChatMessage,
+  CoupleNudge,
+  CoupleProfile,
+  DailyNote,
+  PartnerCheckin,
+  Task,
+  TaskLog,
+} from '../types/habit';
 
 const STORAGE_KEYS = {
   TASKS: 'daily_miniapp_tasks_v1',
@@ -74,7 +82,13 @@ function normalizeDateField(val: unknown): string {
 
 export async function fetchFromSheets(
   scriptUrl: string
-): Promise<{ tasks: Task[]; logs: TaskLog[] }> {
+): Promise<{
+  tasks: Task[];
+  logs: TaskLog[];
+  coupleChat?: CoupleChatMessage[];
+  coupleNudges?: CoupleNudge[];
+  partnerCheckins?: PartnerCheckin[];
+}> {
   const res = await fetch(scriptUrl, { method: 'GET', redirect: 'follow' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
@@ -82,6 +96,9 @@ export async function fetchFromSheets(
 
   const rawTasks = Array.isArray(data.tasks) ? data.tasks : [];
   const rawLogs = Array.isArray(data.logs) ? data.logs : [];
+  const rawChat = Array.isArray(data.coupleChat) ? data.coupleChat : [];
+  const rawNudges = Array.isArray(data.coupleNudges) ? data.coupleNudges : [];
+  const rawCheckins = Array.isArray(data.partnerCheckins) ? data.partnerCheckins : [];
 
   const tasks: Task[] = rawTasks
     .filter((t: Partial<Task>) => t && t.id && t.title)
@@ -117,7 +134,47 @@ export async function fetchFromSheets(
       updated_at: l.updated_at ? String(l.updated_at) : new Date().toISOString(),
     }));
 
-  return { tasks, logs };
+  const coupleChat: CoupleChatMessage[] = rawChat
+    .filter((m: Partial<CoupleChatMessage>) => m && m.id && m.text)
+    .map((m: Partial<CoupleChatMessage>) => ({
+      id: String(m.id),
+      sender: m.sender === 'partner' ? 'partner' : 'me',
+      text: String(m.text),
+      createdAt: m.createdAt ? String(m.createdAt) : '',
+    }));
+
+  const coupleNudges: CoupleNudge[] = rawNudges
+    .filter((n: Partial<CoupleNudge>) => n && n.id && n.message)
+    .map((n: Partial<CoupleNudge>) => ({
+      id: String(n.id),
+      from: n.from === 'partner' ? 'partner' : 'me',
+      message: String(n.message),
+      createdAt: n.createdAt ? String(n.createdAt) : '',
+    }));
+
+  const partnerCheckins: PartnerCheckin[] = rawCheckins
+    .filter((c: Partial<PartnerCheckin>) => c && c.id && c.taskTitle)
+    .map((c: Partial<PartnerCheckin>) => ({
+      id: String(c.id),
+      taskTitle: String(c.taskTitle),
+      emoji: c.emoji ? String(c.emoji) : 'favorite',
+      color: c.color ? String(c.color) : '#F472B6',
+      completedAt: c.completedAt ? String(c.completedAt) : '',
+      note: c.note ? String(c.note) : undefined,
+      photo: c.photo ? String(c.photo) : '',
+      reaction:
+        c.reaction === 'heart' || c.reaction === 'clap' || c.reaction === 'fire'
+          ? c.reaction
+          : null,
+    }));
+
+  return {
+    tasks,
+    logs,
+    coupleChat: coupleChat.length > 0 ? coupleChat : undefined,
+    coupleNudges: coupleNudges.length > 0 ? coupleNudges : undefined,
+    partnerCheckins: partnerCheckins.length > 0 ? partnerCheckins : undefined,
+  };
 }
 
 async function postToSheets(scriptUrl: string, payload: Record<string, unknown>): Promise<void> {
@@ -148,4 +205,35 @@ export async function bulkSyncToSheets(
   logs: TaskLog[]
 ): Promise<void> {
   await postToSheets(scriptUrl, { action: 'bulk_sync', tasks, logs });
+}
+
+export async function syncCoupleProfileToSheets(
+  scriptUrl: string,
+  profile: CoupleProfile
+): Promise<void> {
+  await postToSheets(scriptUrl, {
+    action: 'upsert_couple_profile',
+    profile: { ...profile, id: profile.myCode, updated_at: new Date().toISOString() },
+  });
+}
+
+export async function syncCoupleChatToSheets(
+  scriptUrl: string,
+  message: CoupleChatMessage
+): Promise<void> {
+  await postToSheets(scriptUrl, { action: 'upsert_couple_chat', message });
+}
+
+export async function syncCoupleNudgeToSheets(
+  scriptUrl: string,
+  nudge: CoupleNudge
+): Promise<void> {
+  await postToSheets(scriptUrl, { action: 'upsert_couple_nudge', nudge });
+}
+
+export async function syncPartnerCheckinToSheets(
+  scriptUrl: string,
+  checkin: PartnerCheckin
+): Promise<void> {
+  await postToSheets(scriptUrl, { action: 'upsert_partner_checkin', checkin });
 }

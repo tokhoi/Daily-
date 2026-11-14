@@ -14,6 +14,36 @@
 
 const SHEET_TASKS = 'tasks';
 const SHEET_LOGS = 'task_logs';
+const SHEET_COUPLE_PROFILES = 'couple_profiles';
+const SHEET_COUPLE_CHAT = 'couple_chat';
+const SHEET_COUPLE_NUDGES = 'couple_nudges';
+const SHEET_PARTNER_CHECKINS = 'partner_checkins';
+
+const COUPLE_PROFILE_HEADERS = [
+  'id',
+  'myName',
+  'myCode',
+  'partnerName',
+  'partnerCode',
+  'isPaired',
+  'bearStyle',
+  'updated_at',
+];
+
+const COUPLE_CHAT_HEADERS = ['id', 'sender', 'text', 'createdAt'];
+
+const COUPLE_NUDGE_HEADERS = ['id', 'from', 'message', 'createdAt'];
+
+const PARTNER_CHECKIN_HEADERS = [
+  'id',
+  'taskTitle',
+  'emoji',
+  'color',
+  'completedAt',
+  'note',
+  'photo',
+  'reaction',
+];
 
 const TASK_HEADERS = [
   'id',
@@ -128,9 +158,27 @@ function doGet(e) {
   try {
     const tasksSheet = getOrCreateSheet(SHEET_TASKS, TASK_HEADERS);
     const logsSheet = getOrCreateSheet(SHEET_LOGS, LOG_HEADERS);
+    const profilesSheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
+    const chatSheet = getOrCreateSheet(SHEET_COUPLE_CHAT, COUPLE_CHAT_HEADERS);
+    const nudgesSheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
+    const checkinsSheet = getOrCreateSheet(SHEET_PARTNER_CHECKINS, PARTNER_CHECKIN_HEADERS);
+
     const tasks = sheetToObjects(tasksSheet, TASK_HEADERS);
     const logs = sheetToObjects(logsSheet, LOG_HEADERS);
-    return jsonResponse({ ok: true, tasks: tasks, logs: logs });
+    const coupleProfiles = sheetToObjects(profilesSheet, COUPLE_PROFILE_HEADERS);
+    const coupleChat = sheetToObjects(chatSheet, COUPLE_CHAT_HEADERS);
+    const coupleNudges = sheetToObjects(nudgesSheet, COUPLE_NUDGE_HEADERS);
+    const partnerCheckins = sheetToObjects(checkinsSheet, PARTNER_CHECKIN_HEADERS);
+
+    return jsonResponse({
+      ok: true,
+      tasks: tasks,
+      logs: logs,
+      coupleProfiles: coupleProfiles,
+      coupleChat: coupleChat,
+      coupleNudges: coupleNudges,
+      partnerCheckins: partnerCheckins,
+    });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
   }
@@ -153,11 +201,52 @@ function doPost(e) {
       return jsonResponse({ ok: true });
     }
 
+    if (action === 'upsert_couple_profile') {
+      const sheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
+      const profile = body.profile || {};
+      const rowId = profile.id || profile.myCode || 'default';
+      upsertRow(sheet, COUPLE_PROFILE_HEADERS, 'id', rowId, Object.assign({ id: rowId }, profile));
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === 'upsert_couple_chat') {
+      const sheet = getOrCreateSheet(SHEET_COUPLE_CHAT, COUPLE_CHAT_HEADERS);
+      upsertRow(sheet, COUPLE_CHAT_HEADERS, 'id', body.message.id, body.message);
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === 'upsert_couple_nudge') {
+      const sheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
+      upsertRow(sheet, COUPLE_NUDGE_HEADERS, 'id', body.nudge.id, body.nudge);
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === 'upsert_partner_checkin') {
+      const sheet = getOrCreateSheet(SHEET_PARTNER_CHECKINS, PARTNER_CHECKIN_HEADERS);
+      upsertRow(sheet, PARTNER_CHECKIN_HEADERS, 'id', body.checkin.id, body.checkin);
+      return jsonResponse({ ok: true });
+    }
+
     if (action === 'bulk_sync') {
       const tasksSheet = getOrCreateSheet(SHEET_TASKS, TASK_HEADERS);
       const logsSheet = getOrCreateSheet(SHEET_LOGS, LOG_HEADERS);
       (body.tasks || []).forEach((t) => upsertRow(tasksSheet, TASK_HEADERS, 'id', t.id, t));
       (body.logs || []).forEach((l) => upsertRow(logsSheet, LOG_HEADERS, 'id', l.id, l));
+
+      if (Array.isArray(body.coupleChat)) {
+        const chatSheet = getOrCreateSheet(SHEET_COUPLE_CHAT, COUPLE_CHAT_HEADERS);
+        body.coupleChat.forEach((m) => upsertRow(chatSheet, COUPLE_CHAT_HEADERS, 'id', m.id, m));
+      }
+      if (Array.isArray(body.coupleNudges)) {
+        const nudgesSheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
+        body.coupleNudges.forEach((n) => upsertRow(nudgesSheet, COUPLE_NUDGE_HEADERS, 'id', n.id, n));
+      }
+      if (Array.isArray(body.partnerCheckins)) {
+        const checkinsSheet = getOrCreateSheet(SHEET_PARTNER_CHECKINS, PARTNER_CHECKIN_HEADERS);
+        body.partnerCheckins.forEach((c) =>
+          upsertRow(checkinsSheet, PARTNER_CHECKIN_HEADERS, 'id', c.id, c)
+        );
+      }
       return jsonResponse({ ok: true });
     }
 
