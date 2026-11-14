@@ -4,6 +4,7 @@ import type {
   CoupleNudge,
   CoupleProfile,
   DailyNote,
+  PairRequest,
   PartnerCheckin,
   Task,
   TaskLog,
@@ -134,6 +135,7 @@ export async function fetchFromSheets(
   coupleChat?: CoupleChatMessage[];
   coupleNudges?: CoupleNudge[];
   partnerCheckins?: PartnerCheckin[];
+  pairRequests?: PairRequest[];
 }> {
   const res = await fetch(scriptUrl, { method: 'GET', redirect: 'follow' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -147,6 +149,7 @@ export async function fetchFromSheets(
   const rawChat = Array.isArray(data.coupleChat) ? data.coupleChat : [];
   const rawNudges = Array.isArray(data.coupleNudges) ? data.coupleNudges : [];
   const rawCheckins = Array.isArray(data.partnerCheckins) ? data.partnerCheckins : [];
+  const rawPairRequests = Array.isArray(data.pairRequests) ? data.pairRequests : [];
 
   const tasks: Task[] = rawTasks
     .filter((t: Partial<Task>) => t && t.id && t.title)
@@ -243,6 +246,22 @@ export async function fetchFromSheets(
       bearStyle: p.bearStyle === 'blue' ? 'blue' : 'pink',
     }));
 
+  const pairRequests: PairRequest[] = rawPairRequests
+    .filter((r: Partial<PairRequest>) => r && r.id && r.from_user_id)
+    .map((r: Partial<PairRequest>) => ({
+      id: String(r.id),
+      from_user_id: String(r.from_user_id),
+      from_name: r.from_name ? String(r.from_name) : String(r.from_user_id),
+      to_code: r.to_code ? String(r.to_code).toUpperCase() : '',
+      to_user_id: r.to_user_id ? String(r.to_user_id) : undefined,
+      room_code: r.room_code ? String(r.room_code).toUpperCase() : '',
+      status:
+        r.status === 'accepted' || r.status === 'rejected' || r.status === 'cancelled'
+          ? r.status
+          : 'pending',
+      updated_at: r.updated_at ? String(r.updated_at) : '',
+    }));
+
   return {
     tasks,
     logs,
@@ -251,6 +270,7 @@ export async function fetchFromSheets(
     coupleChat: coupleChat.length > 0 ? coupleChat : undefined,
     coupleNudges: coupleNudges.length > 0 ? coupleNudges : undefined,
     partnerCheckins: partnerCheckins.length > 0 ? partnerCheckins : undefined,
+    pairRequests: pairRequests.length > 0 ? pairRequests : undefined,
   };
 }
 
@@ -447,4 +467,37 @@ export async function syncPartnerCheckinToSheets(
   checkin: PartnerCheckin
 ): Promise<void> {
   await postToSheets(scriptUrl, { action: 'upsert_partner_checkin', checkin });
+}
+
+export async function sendPairRequestOnSheets(
+  scriptUrl: string,
+  params: { from_user_id: string; from_name: string; to_code: string }
+): Promise<PairRequest> {
+  const res = await postToSheets(scriptUrl, {
+    action: 'request_pair',
+    ...params,
+  });
+  return res.request as PairRequest;
+}
+
+export async function respondPairRequestOnSheets(
+  scriptUrl: string,
+  params: { request_id: string; accept: boolean }
+): Promise<{ request: PairRequest; user: AppUser | null; partner: AppUser | null }> {
+  const res = await postToSheets(scriptUrl, {
+    action: 'respond_pair',
+    ...params,
+  });
+  return {
+    request: res.request as PairRequest,
+    user: (res.user as AppUser) || null,
+    partner: (res.partner as AppUser) || null,
+  };
+}
+
+export async function cancelPairRequestOnSheets(
+  scriptUrl: string,
+  requestId: string
+): Promise<void> {
+  await postToSheets(scriptUrl, { action: 'cancel_pair_request', request_id: requestId });
 }

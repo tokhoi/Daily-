@@ -23,6 +23,7 @@ import {
 } from './i18n/translations';
 import {
   bulkSyncToSheets,
+  cancelPairRequestOnSheets,
   clearCurrentUser,
   fetchFromSheets,
   getSavedSheetUrl,
@@ -30,10 +31,12 @@ import {
   loadDailyNotes,
   loadLocalData,
   pairCoupleOnSheets,
+  respondPairRequestOnSheets,
   saveCurrentUser,
   saveDailyNotes,
   saveLocalData,
   saveSheetUrl,
+  sendPairRequestOnSheets,
   syncCoupleChatToSheets,
   syncCoupleNudgeToSheets,
   syncCoupleProfileToSheets,
@@ -49,6 +52,7 @@ import type {
   CoupleNudge,
   CoupleProfile,
   DailyNote,
+  PairRequest,
   PartnerCheckin,
   SyncState,
   Task,
@@ -163,6 +167,7 @@ export function App() {
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
   const [pairError, setPairError] = useState<string | null>(null);
   const [chatError, setChatError] = useState<string | null>(null);
+  const [pairRequests, setPairRequests] = useState<PairRequest[]>([]);
 
   useEffect(() => {
     saveLocalData(tasks, logs);
@@ -417,6 +422,11 @@ export function App() {
         });
       } else if (allowEmpty) {
         setNudges((prev) => prev.filter((n) => isRecentOptimistic(n.id, 'nudge_')));
+      }
+      if (remote.pairRequests) {
+        setPairRequests(remote.pairRequests);
+      } else if (allowEmpty) {
+        setPairRequests([]);
       }
       if (remote.partnerCheckins) {
         setPartnerCheckins(remote.partnerCheckins);
@@ -740,6 +750,88 @@ export function App() {
     setShowUserModal(true);
   };
 
+  const incomingPairRequest =
+    currentUser && !coupleProfile.isPaired
+      ? pairRequests.find(
+          (r) =>
+            r.status === 'pending' &&
+            r.from_user_id !== currentUser.user_id &&
+            (r.to_user_id === currentUser.user_id ||
+              r.to_code.toUpperCase() === currentUser.user_id.toUpperCase())
+        ) || null
+      : null;
+
+  const outgoingPairRequest =
+    currentUser && !coupleProfile.isPaired
+      ? pairRequests.find(
+          (r) => r.status === 'pending' && r.from_user_id === currentUser.user_id
+        ) || null
+      : null;
+
+  const handleSendPairRequest = async (partnerCode: string) => {
+    if (!currentUser || !sheetUrl) return;
+    setPairError(null);
+    const code = partnerCode.trim().toUpperCase();
+    if (!code) return;
+    if (code === currentUser.user_id.toUpperCase()) {
+      setPairError('Bạn không thể nhập mã của chính mình.');
+      return;
+    }
+    try {
+      const req = await sendPairRequestOnSheets(sheetUrl, {
+        from_user_id: currentUser.user_id,
+        from_name: currentUser.display_name,
+        to_code: code,
+      });
+      setPairRequests((prev) => {
+        const filtered = prev.filter((r) => r.id !== req.id);
+        return [...filtered, req];
+      });
+    } catch (err) {
+      setPairError(err instanceof Error ? err.message : 'Không thể gửi lời mời ghép đôi.');
+    }
+  };
+
+  const handleRespondPairRequest = async (requestId: string, accept: boolean) => {
+    if (!currentUser || !sheetUrl) return;
+    setPairError(null);
+    try {
+      const res = await respondPairRequestOnSheets(sheetUrl, {
+        request_id: requestId,
+        accept,
+      });
+      setPairRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: accept ? 'accepted' : 'rejected' } : r))
+      );
+      if (accept && res.user) {
+        const mergedUser: AppUser = { ...currentUser, ...res.user };
+        saveCurrentUser(mergedUser);
+        setCurrentUser(mergedUser);
+        setCoupleProfile((prev) => ({
+          ...prev,
+          partnerCode: (mergedUser.room_code || prev.partnerCode).toUpperCase(),
+          partnerName: res.partner?.display_name || mergedUser.partner_id || prev.partnerName,
+          isPaired: true,
+        }));
+        handlePullFromSheets(sheetUrl, true, mergedUser);
+      }
+    } catch (err) {
+      setPairError(err instanceof Error ? err.message : 'Không thể phản hồi lời mời.');
+    }
+  };
+
+  const handleCancelPairRequest = async (requestId: string) => {
+    if (!sheetUrl) return;
+    try {
+      await cancelPairRequestOnSheets(sheetUrl, requestId);
+      setPairRequests((prev) =>
+        prev.map((r) => (r.id === requestId ? { ...r, status: 'cancelled' } : r))
+      );
+    } catch (err) {
+      setPairError(err instanceof Error ? err.message : 'Không thể hủy lời mời.');
+    }
+  };
+
   const todayKey = toDateKey(new Date());
   const scheduledTodayTasks = myTasks.filter((t) => isTaskScheduledForDate(t, todayKey));
   const pendingTodayTasks = scheduledTodayTasks.filter((t) => {
@@ -1006,9 +1098,14 @@ export function App() {
               key="couple-tab"
               profile={coupleProfile}
               pairError={pairError}
+              incomingRequest={incomingPairRequest}
+              outgoingRequest={outgoingPairRequest}
               partnerCheckins={realPartnerCheckins}
               nudges={nudges}
               onUpdateProfile={handleUpdateCoupleProfile}
+              onSendPairRequest={handleSendPairRequest}
+              onRespondPairRequest={handleRespondPairRequest}
+              onCancelPairRequest={handleCancelPairRequest}
               onReactCheckin={handleReactCheckin}
               onSendNudge={handleSendNudge}
             />
@@ -1092,6 +1189,9 @@ export function App() {
                 >
                   <GIcon name={tab.icon} size={20} filled={active} />
                   <span>{tab.label}</span>
+                  {tab.id === 'couple' && incomingPairRequest && (
+                    <span className="absolute top-1.5 right-3 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+                  )}
                 </button>
               );
             })}

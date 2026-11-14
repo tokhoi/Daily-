@@ -38,6 +38,17 @@ export interface CoupleProfile {
   bearStyle: 'pink' | 'blue';
 }
 
+export interface PairRequest {
+  id: string;
+  from_user_id: string;
+  from_name: string;
+  to_code: string;
+  to_user_id?: string;
+  room_code: string;
+  status: 'pending' | 'accepted' | 'rejected' | 'cancelled';
+  updated_at: string;
+}
+
 export interface PartnerCheckin {
   id: string;
   taskTitle: string;

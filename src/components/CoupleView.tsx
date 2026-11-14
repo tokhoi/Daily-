@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import type {
   CoupleNudge,
   CoupleProfile,
+  PairRequest,
   PartnerCheckin,
 } from '../types/habit';
 import { GIcon, TaskGlyph } from './GIcon';
@@ -9,9 +10,14 @@ import { GIcon, TaskGlyph } from './GIcon';
 interface CoupleViewProps {
   profile: CoupleProfile;
   pairError?: string | null;
+  incomingRequest?: PairRequest | null;
+  outgoingRequest?: PairRequest | null;
   partnerCheckins: PartnerCheckin[];
   nudges: CoupleNudge[];
   onUpdateProfile: (next: CoupleProfile) => void;
+  onSendPairRequest?: (partnerCode: string) => void;
+  onRespondPairRequest?: (requestId: string, accept: boolean) => void;
+  onCancelPairRequest?: (requestId: string) => void;
   onReactCheckin: (id: string, reaction: 'heart' | 'clap' | 'fire') => void;
   onSendNudge: (message: string) => void;
 }
@@ -25,9 +31,14 @@ const QUICK_NUDGES = [
 export const CoupleView: React.FC<CoupleViewProps> = ({
   profile,
   pairError,
+  incomingRequest,
+  outgoingRequest,
   partnerCheckins,
   nudges,
   onUpdateProfile,
+  onSendPairRequest,
+  onRespondPairRequest,
+  onCancelPairRequest,
   onReactCheckin,
   onSendNudge,
 }) => {
@@ -96,6 +107,10 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
   const handleJoinRoom = () => {
     const code = joinRoomInput.trim().toUpperCase();
     if (!code) return;
+    if (onSendPairRequest) {
+      onSendPairRequest(code);
+      return;
+    }
     onUpdateProfile({
       ...profile,
       partnerName: partnerNameInput.trim(),
@@ -128,7 +143,52 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
             </p>
           </div>
 
-          {profile.partnerCode.startsWith('RM-') && (
+          {incomingRequest && (
+            <div className="mt-4 rounded-2xl border border-pink-200 bg-pink-50/80 p-4 text-center">
+              <p className="text-xs font-extrabold text-blue-950">
+                💌 Lời mời ghép đôi từ {incomingRequest.from_name}
+              </p>
+              <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                @{incomingRequest.from_user_id} muốn kết nối phòng Couple với bạn
+              </p>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => onRespondPairRequest?.(incomingRequest.id, false)}
+                  className="ios-press flex-1 rounded-xl border border-pink-200 bg-white py-2 text-xs font-bold text-slate-600"
+                >
+                  Từ chối
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRespondPairRequest?.(incomingRequest.id, true)}
+                  className="ios-press flex-1 rounded-xl bg-blue-900 py-2 text-xs font-extrabold text-white shadow-sm"
+                >
+                  Chấp nhận & Vào phòng
+                </button>
+              </div>
+            </div>
+          )}
+
+          {outgoingRequest && (
+            <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-center">
+              <p className="text-xs font-extrabold text-blue-950">
+                ⏳ Đang chờ {outgoingRequest.to_code} xác nhận...
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Khi người ấy bấm Chấp nhận, hai bạn sẽ cùng vào phòng ngay lập tức.
+              </p>
+              <button
+                type="button"
+                onClick={() => onCancelPairRequest?.(outgoingRequest.id)}
+                className="ios-press mt-3 rounded-xl bg-white px-4 py-1.5 text-[11px] font-bold text-rose-500 shadow-2xs"
+              >
+                Hủy lời mời
+              </button>
+            </div>
+          )}
+
+          {profile.partnerCode.startsWith('RM-') && !outgoingRequest && (
             <div className="mt-4 rounded-2xl bg-blue-50/60 p-3 text-center text-xs font-bold text-blue-900">
               Đang chờ người ấy vào phòng {profile.partnerCode}
             </div>

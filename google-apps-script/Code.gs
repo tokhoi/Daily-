@@ -19,6 +19,7 @@ const SHEET_COUPLE_PROFILES = 'couple_profiles';
 const SHEET_COUPLE_CHAT = 'couple_chat';
 const SHEET_COUPLE_NUDGES = 'couple_nudges';
 const SHEET_PARTNER_CHECKINS = 'partner_checkins';
+const SHEET_PAIR_REQUESTS = 'pair_requests';
 
 const USER_HEADERS = [
   'user_id',
@@ -55,6 +56,17 @@ const PARTNER_CHECKIN_HEADERS = [
   'note',
   'photo',
   'reaction',
+];
+
+const PAIR_REQUEST_HEADERS = [
+  'id',
+  'from_user_id',
+  'from_name',
+  'to_code',
+  'to_user_id',
+  'room_code',
+  'status',
+  'updated_at',
 ];
 
 const TASK_HEADERS = [
@@ -201,6 +213,7 @@ function doGet(e) {
     const chatSheet = getOrCreateSheet(SHEET_COUPLE_CHAT, COUPLE_CHAT_HEADERS);
     const nudgesSheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
     const checkinsSheet = getOrCreateSheet(SHEET_PARTNER_CHECKINS, PARTNER_CHECKIN_HEADERS);
+    const pairReqSheet = getOrCreateSheet(SHEET_PAIR_REQUESTS, PAIR_REQUEST_HEADERS);
 
     const tasks = sheetToObjects(tasksSheet, TASK_HEADERS);
     const logs = sheetToObjects(logsSheet, LOG_HEADERS);
@@ -209,6 +222,7 @@ function doGet(e) {
     const coupleChat = sheetToObjects(chatSheet, COUPLE_CHAT_HEADERS);
     const coupleNudges = sheetToObjects(nudgesSheet, COUPLE_NUDGE_HEADERS);
     const partnerCheckins = sheetToObjects(checkinsSheet, PARTNER_CHECKIN_HEADERS);
+    const pairRequests = sheetToObjects(pairReqSheet, PAIR_REQUEST_HEADERS);
 
     return jsonResponse({
       ok: true,
@@ -219,6 +233,7 @@ function doGet(e) {
       coupleChat: coupleChat,
       coupleNudges: coupleNudges,
       partnerCheckins: partnerCheckins,
+      pairRequests: pairRequests,
     });
   } catch (err) {
     return jsonResponse({ ok: false, error: err.message });
@@ -353,6 +368,127 @@ function doPost(e) {
       myUser.room_code = '';
       upsertRow(sheet, USER_HEADERS, 'user_id', myUser.user_id, myUser);
       return jsonResponse({ ok: true, user: toPublicUser(myUser) });
+    }
+
+    if (action === 'request_pair') {
+      const usersSheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(usersSheet, USER_HEADERS);
+      const reqSheet = getOrCreateSheet(SHEET_PAIR_REQUESTS, PAIR_REQUEST_HEADERS);
+      const fromId = String(body.from_user_id || '').trim().toLowerCase();
+      const fromName = String(body.from_name || fromId).trim();
+      const toCode = String(body.to_code || '').trim().toUpperCase();
+
+      if (!fromId || !toCode) {
+        return jsonResponse({ ok: false, error: 'Thiếu thông tin người gửi hoặc mã người nhận.' });
+      }
+
+      const targetUser = users.find(
+        (u) =>
+          String(u.user_id || '').toLowerCase() !== fromId &&
+          (String(u.user_id || '').toUpperCase() === toCode ||
+            (u.room_code && String(u.room_code).toUpperCase() === toCode))
+      );
+
+      if (!targetUser) {
+        return jsonResponse({ ok: false, error: 'Không tìm thấy tài khoản có mã "' + toCode + '".' });
+      }
+      if (targetUser.partner_id && targetUser.partner_id !== fromId) {
+        return jsonResponse({ ok: false, error: 'Người này đã kết nối với một tài khoản khác rồi.' });
+      }
+
+      const reqObj = {
+        id: 'pair_' + fromId + '_' + targetUser.user_id,
+        from_user_id: fromId,
+        from_name: fromName,
+        to_code: toCode,
+        to_user_id: targetUser.user_id,
+        room_code: toCode,
+        status: 'pending',
+        updated_at: new Date().toISOString(),
+      };
+      upsertRow(reqSheet, PAIR_REQUEST_HEADERS, 'id', reqObj.id, reqObj);
+      return jsonResponse({ ok: true, request: reqObj });
+    }
+
+    if (action === 'respond_pair') {
+      const reqSheet = getOrCreateSheet(SHEET_PAIR_REQUESTS, PAIR_REQUEST_HEADERS);
+      const requests = sheetToObjects(reqSheet, PAIR_REQUEST_HEADERS);
+      const reqId = String(body.request_id || '');
+      const accept = Boolean(body.accept);
+      const reqObj = requests.find((r) => String(r.id) === reqId);
+      if (!reqObj) {
+        return jsonResponse({ ok: false, error: 'Không tìm thấy lời mời ghép đôi.' });
+      }
+
+      reqObj.status = accept ? 'accepted' : 'rejected';
+      reqObj.updated_at = new Date().toISOString();
+      upsertRow(reqSheet, PAIR_REQUEST_HEADERS, 'id', reqObj.id, reqObj);
+
+      if (!accept) {
+        return jsonResponse({ ok: true, request: reqObj });
+      }
+
+      const usersSheet = getOrCreateSheet(SHEET_USERS, USER_HEADERS);
+      const users = sheetToObjects(usersSheet, USER_HEADERS);
+      const fromUser = users.find(
+        (u) => String(u.user_id || '').toLowerCase() === String(reqObj.from_user_id || '').toLowerCase()
+      );
+      const toUser = users.find(
+        (u) => String(u.user_id || '').toLowerCase() === String(reqObj.to_user_id || '').toLowerCase()
+      );
+      const roomCode = String(reqObj.room_code || reqObj.to_code || '').toUpperCase();
+
+      if (fromUser && toUser) {
+        fromUser.partner_id = toUser.user_id;
+        fromUser.room_code = roomCode;
+        toUser.partner_id = fromUser.user_id;
+        toUser.room_code = roomCode;
+        upsertRow(usersSheet, USER_HEADERS, 'user_id', fromUser.user_id, fromUser);
+        upsertRow(usersSheet, USER_HEADERS, 'user_id', toUser.user_id, toUser);
+
+        const profilesSheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
+        const nowIso = new Date().toISOString();
+        upsertRow(profilesSheet, COUPLE_PROFILE_HEADERS, 'id', fromUser.user_id.toUpperCase(), {
+          id: fromUser.user_id.toUpperCase(),
+          myName: fromUser.display_name,
+          myCode: fromUser.user_id.toUpperCase(),
+          partnerName: toUser.display_name,
+          partnerCode: roomCode,
+          isPaired: true,
+          bearStyle: 'pink',
+          updated_at: nowIso,
+        });
+        upsertRow(profilesSheet, COUPLE_PROFILE_HEADERS, 'id', toUser.user_id.toUpperCase(), {
+          id: toUser.user_id.toUpperCase(),
+          myName: toUser.display_name,
+          myCode: toUser.user_id.toUpperCase(),
+          partnerName: fromUser.display_name,
+          partnerCode: roomCode,
+          isPaired: true,
+          bearStyle: 'pink',
+          updated_at: nowIso,
+        });
+      }
+
+      return jsonResponse({
+        ok: true,
+        request: reqObj,
+        user: toUser ? toPublicUser(toUser) : null,
+        partner: fromUser ? toPublicUser(fromUser) : null,
+      });
+    }
+
+    if (action === 'cancel_pair_request') {
+      const reqSheet = getOrCreateSheet(SHEET_PAIR_REQUESTS, PAIR_REQUEST_HEADERS);
+      const requests = sheetToObjects(reqSheet, PAIR_REQUEST_HEADERS);
+      const reqId = String(body.request_id || '');
+      const reqObj = requests.find((r) => String(r.id) === reqId);
+      if (reqObj) {
+        reqObj.status = 'cancelled';
+        reqObj.updated_at = new Date().toISOString();
+        upsertRow(reqSheet, PAIR_REQUEST_HEADERS, 'id', reqObj.id, reqObj);
+      }
+      return jsonResponse({ ok: true });
     }
 
     if (action === 'upsert_couple_profile') {
