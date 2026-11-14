@@ -666,7 +666,7 @@ const ANIM_PRESETS: {
   { id: 'idle', label: 'Thở nhẹ', meme: 'Chill phết, làm ly trà sữa hông? 🧋', icon: 'pets' },
   { id: 'clap', label: 'Đỉnh nóc', meme: 'Đỉnh nóc, kịch trần, bay phấp phới! 🔥', icon: 'favorite' },
   { id: 'wave', label: 'Vẫy chào', meme: 'Hello cưng, nay tick đủ task chưa đó? 👋', icon: 'wb_sunny' },
-  { id: 'poke', label: 'Chọc nhắc', meme: 'Làm task đi má ơi, đừng lười nữa!! 🔔', icon: 'notifications_active' },
+  { id: 'poke', label: 'Chọc nhắc', meme: 'Dậy làm việc đi bạn ơi, đừng lười nữa!! 🔔', icon: 'notifications_active' },
   { id: 'dance', label: 'Quẩy meme', meme: 'Gét gô!! Hết nước chấm luôn 💃✨', icon: 'auto_awesome' },
   { id: 'sleep', label: 'Oải chưởng', meme: 'Oải cả chưởng... cho gấu ngủ xíu 💤', icon: 'bedtime' },
   { id: 'flex', label: 'Flex cơ', meme: 'Over hợp luôn! Cơ bắp uy tín chưa 💪', icon: 'fitness_center' },
@@ -715,7 +715,7 @@ function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
     return { reply: 'Đỉnh nóc, kịch trần, bay phấp phới!! Vỗ tay rào rào 👏💗', anim: 'clap' };
   }
   if (lower.includes('nhắc') || lower.includes('chọc') || lower.includes('task')) {
-    return { reply: 'Dậy làm task đi má ơi, lướt điện thoại hoài à 🔔😂', anim: 'poke' };
+    return { reply: 'Dậy hoàn thành việc hôm nay đi bạn ơi, lướt điện thoại hoài à 🔔😂', anim: 'poke' };
   }
   if (lower.includes('chào') || lower.includes('hello') || lower.includes('hi')) {
     return { reply: 'Hello cưng! Chúc hôm nay năng suất gấp đôi hôm qua nha ☀️', anim: 'wave' };
@@ -729,7 +729,6 @@ function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
 export const Bear3DStudio: React.FC = () => {
   const [anim, setAnim] = useState<Bear3DAnim>('idle');
   const [variant, setVariant] = useState<Bear3DVariant>('pink');
-  const [tapCount, setTapCount] = useState(0);
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<BearChatMessage[]>([
     {
@@ -773,10 +772,10 @@ export const Bear3DStudio: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-              3D ARTICULATED MASCOT
+              BÉ GẤU ĐỒNG HÀNH
             </span>
             <h2 className="mt-1 text-sm font-extrabold text-blue-950">
-              Bé Gấu Đa Khớp & Meme 360°
+              Bé Gấu Tương Tác
             </h2>
           </div>
 
@@ -812,18 +811,18 @@ export const Bear3DStudio: React.FC = () => {
           anim={anim}
           variant={variant}
           height={285}
-          onTapBear={() => setTapCount((c) => c + 1)}
+          onTapBear={() => {}}
         />
 
         <p className="text-center text-[11px] font-semibold text-slate-400">
-          Kéo xoay 360° hoặc chạm vào bé gấu để nựng ({tapCount} lần chạm)
+          Kéo để xoay hoặc chạm vào bé gấu để nựng
         </p>
       </div>
 
       {/* Actions & Meme Grid */}
       <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
         <h3 className="mb-3 text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-          Actions & Meme Gen-Z ({ANIM_PRESETS.length} hiệu ứng)
+          Biểu cảm &amp; Hoạt động
         </h3>
         <div className="grid grid-cols-2 gap-2">
           {ANIM_PRESETS.map((preset) => {
@@ -860,7 +859,7 @@ export const Bear3DStudio: React.FC = () => {
             Khung Chat với Bé Gấu
           </h3>
           <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-500">
-            Meme Mode
+            Trực tuyến
           </span>
         </div>
 

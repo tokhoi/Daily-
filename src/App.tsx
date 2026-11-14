@@ -693,8 +693,8 @@ export function App() {
             </h1>
             <p className="text-[11px] font-medium text-slate-400">
               {activeTab === 'today' && t.appSubtitleToday}
-              {activeTab === 'couple' && 'Ghép đôi, quẹt ảnh & tương tác'}
-              {activeTab === 'bear3d' && 'Gấu 3D tương tác (Duolingo-style)'}
+              {activeTab === 'couple' && 'Không gian cặp đôi'}
+              {activeTab === 'bear3d' && 'Bé Gấu đồng hành'}
               {activeTab === 'summary' && t.appSubtitleSummary}
               {activeTab === 'settings' && t.appSubtitleSettings}
             </p>
@@ -719,11 +719,11 @@ export function App() {
             <button
               type="button"
               onClick={() => setShowUserModal(true)}
-              className="ios-press flex items-center gap-1 rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
-              title="Đổi tài khoản"
+              className="ios-press flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
+              title="Tài khoản"
             >
               <GIcon name="person" size={13} className="text-pink-400" />
-              <span className="max-w-[64px] truncate">
+              <span className="max-w-[72px] truncate">
                 {currentUser ? currentUser.display_name : 'Đăng nhập'}
               </span>
             </button>
@@ -732,8 +732,8 @@ export function App() {
             <button
               type="button"
               onClick={cycleWeatherMode}
-              className="ios-press flex items-center gap-1 rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
-              title="Weather Effect"
+              className="ios-press flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-pink-100 bg-pink-50/70 px-2.5 py-1 text-[11px] font-bold text-blue-900 transition hover:bg-pink-100/70"
+              title="Hiệu ứng thời tiết"
             >
               <GIcon
                 name={
@@ -751,38 +751,6 @@ export function App() {
                 {weatherMode === 'rain' && t.weatherRain}
                 {weatherMode === 'sparkle' && t.weatherSparkle}
                 {weatherMode === 'off' && t.weatherOff}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('settings')}
-              className={`ios-press flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition ${
-                syncState === 'synced'
-                  ? 'bg-emerald-50 text-emerald-700'
-                  : syncState === 'syncing'
-                    ? 'bg-blue-50 text-blue-900'
-                    : syncState === 'error'
-                      ? 'bg-rose-50 text-rose-600'
-                      : 'bg-pink-50 text-pink-500'
-              }`}
-              title="Trạng thái đồng bộ"
-            >
-              <GIcon
-                name={
-                  syncState === 'local'
-                    ? 'cloud_off'
-                    : syncState === 'error'
-                      ? 'cloud_alert'
-                      : 'cloud_done'
-                }
-                size={14}
-              />
-              <span>
-                {syncState === 'local' && 'Local'}
-                {syncState === 'syncing' && 'Sync'}
-                {syncState === 'synced' && 'Sheets'}
-                {syncState === 'error' && 'Lỗi'}
               </span>
             </button>
 

@@ -252,7 +252,7 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-              COUPLE STREAK • {coupleStreak} NGÀY
+              CHUỖI ĐỒNG HÀNH • {coupleStreak} NGÀY
             </span>
             <h2 className="mt-1 text-sm font-extrabold text-blue-950">
               {profile.myName} & {profile.partnerName}

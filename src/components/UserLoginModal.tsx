@@ -119,7 +119,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
                 Tài khoản DailyLog
               </h2>
               <p className="text-[11px] font-medium text-slate-400">
-                Bảo mật SHA-256 + Session Token
+                Lưu tiến độ &amp; kết nối không gian cặp đôi
               </p>
             </div>
           </div>
@@ -194,7 +194,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           <div>
             <label className="mb-1 block text-[11px] font-bold text-slate-500">
-              Tên đăng nhập (ID)
+              Tên đăng nhập
             </label>
             <input
               type="text"
