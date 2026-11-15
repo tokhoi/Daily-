@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { AddTaskModal } from './components/AddTaskModal';
-import { Bear3DStudio } from './components/Bear3DStudio';
 import { ChatView } from './components/ChatView';
 import { CoupleView } from './components/CoupleView';
 import { GIcon } from './components/GIcon';
@@ -401,9 +400,12 @@ export function App() {
       }
 
       if (remote.coupleNudges) {
-        const filteredNudges = activeRoom
-          ? remote.coupleNudges.filter((n) => n.room_code?.toUpperCase() === activeRoom)
-          : [];
+        const personalRoom = myCodeUpper ? `USER_${myCodeUpper}` : undefined;
+        const filteredNudges = remote.coupleNudges.filter(
+          (n) =>
+            (activeRoom && n.room_code?.toUpperCase() === activeRoom) ||
+            (personalRoom && n.room_code?.toUpperCase() === personalRoom)
+        );
         const normalizedNudges: CoupleNudge[] = filteredNudges.map((n) => ({
           ...n,
           from:
@@ -1002,7 +1004,7 @@ export function App() {
 
   const latestPartnerNudge = nudges.find((n) => n.from === 'partner');
 
-  const tabOrder: AppTab[] = ['today', 'couple', 'chat', 'bear3d', 'summary', 'settings'];
+  const tabOrder: AppTab[] = ['today', 'couple', 'chat', 'summary', 'settings'];
   const activeTabIndex = Math.max(0, tabOrder.indexOf(activeTab));
 
   return (
@@ -1026,7 +1028,6 @@ export function App() {
               {activeTab === 'today' && t.appSubtitleToday}
               {activeTab === 'couple' && 'Không gian cặp đôi'}
               {activeTab === 'chat' && 'Nhắn tin riêng tư'}
-              {activeTab === 'bear3d' && 'Bé Gấu đồng hành'}
               {activeTab === 'summary' && t.appSubtitleSummary}
               {activeTab === 'settings' && t.appSubtitleSettings}
             </p>
@@ -1042,7 +1043,7 @@ export function App() {
               aria-label="Thông báo nhắc nhở"
             >
               <GIcon name="notifications_active" size={16} className="text-pink-400" />
-              {coupleProfile.isPaired && latestPartnerNudge && (
+              {latestPartnerNudge && (
                 <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
               )}
             </button>
@@ -1122,8 +1123,6 @@ export function App() {
             />
           )}
 
-          {activeTab === 'bear3d' && <Bear3DStudio key="bear3d-tab" />}
-
           {activeTab === 'summary' && (
             <SummaryView
               key="summary-tab"
@@ -1160,10 +1159,10 @@ export function App() {
 
         {/* Floating iOS Glassmorphic Bottom Navigation */}
         <div className="pointer-events-none fixed bottom-3 z-30 flex w-full max-w-[430px] justify-center px-3">
-          <nav className="pointer-events-auto relative grid w-full grid-cols-6 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
+          <nav className="pointer-events-auto relative grid w-full grid-cols-5 rounded-[26px] border border-pink-100/90 bg-white/85 p-1.5 shadow-[0_10px_35px_-10px_rgba(236,72,153,0.25)] backdrop-blur-xl">
             {/* Sliding active background pill */}
             <div
-              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/6)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
+              className="absolute top-1.5 bottom-1.5 left-1.5 w-[calc((100%-12px)/5)] rounded-[20px] bg-pink-100/80 transition-transform duration-400 ease-[cubic-bezier(0.32,0.72,0,1)]"
               style={{ transform: `translateX(${activeTabIndex * 100}%)` }}
             />
 
@@ -1172,7 +1171,6 @@ export function App() {
                 { id: 'today', label: t.navToday, icon: 'check_circle' },
                 { id: 'couple', label: 'Couple', icon: 'favorite' },
                 { id: 'chat', label: 'Nhắn tin', icon: 'chat_bubble' },
-                { id: 'bear3d', label: 'Gấu 3D', icon: 'pets' },
                 { id: 'summary', label: t.navSummary, icon: 'bar_chart' },
                 { id: 'settings', label: t.navSettings, icon: 'settings' },
               ] as { id: AppTab; label: string; icon: string }[]
@@ -1326,7 +1324,7 @@ export function App() {
               </div>
 
               <div className="mt-3.5 max-h-56 space-y-2 overflow-y-auto pr-1">
-                {coupleProfile.isPaired ? (
+                {nudges.length > 0 ? (
                   nudges.slice(0, 5).map((n) => (
                     <div
                       key={n.id}
@@ -1334,12 +1332,14 @@ export function App() {
                     >
                       <div className="flex justify-between text-[10px] font-bold text-pink-500 uppercase">
                         <span>
-                          {n.from === 'partner' ? coupleProfile.partnerName : coupleProfile.myName}
+                          {n.from === 'partner'
+                            ? coupleProfile.partnerName || n.sender_id || 'Người ấy'
+                            : coupleProfile.myName}
                         </span>
                         <span>{n.createdAt}</span>
                       </div>
                       <p className="mt-0.5 text-xs font-bold text-blue-950">
-                        "{n.message}"
+                        {n.id.startsWith('nudge_leave_') ? n.message : `"${n.message}"`}
                       </p>
                     </div>
                   ))

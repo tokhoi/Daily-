@@ -359,6 +359,20 @@ function doPost(e) {
       const myUser = users.find((u) => String(u.user_id || '').toLowerCase() === myId);
       if (!myUser) return jsonResponse({ ok: false, error: 'Không tìm thấy tài khoản của bạn.' });
       const partnerUser = users.find((u) => u.user_id === myUser.partner_id);
+      if (partnerUser) {
+        const nudgesSheet = getOrCreateSheet(SHEET_COUPLE_NUDGES, COUPLE_NUDGE_HEADERS);
+        const now = new Date();
+        const leaveNudge = {
+          id: 'nudge_leave_' + now.getTime(),
+          room_code: 'USER_' + String(partnerUser.user_id).toUpperCase(),
+          sender_id: myUser.user_id,
+          from: 'partner',
+          message: '💔 ' + (myUser.display_name || myUser.user_id) + ' đã rời khỏi phòng Couple.',
+          createdAt: Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'HH:mm'),
+          updated_at: now.toISOString(),
+        };
+        upsertRow(nudgesSheet, COUPLE_NUDGE_HEADERS, 'id', leaveNudge.id, leaveNudge);
+      }
       if (partnerUser && partnerUser.partner_id === myUser.user_id) {
         partnerUser.partner_id = '';
         partnerUser.room_code = '';
@@ -367,6 +381,25 @@ function doPost(e) {
       myUser.partner_id = '';
       myUser.room_code = '';
       upsertRow(sheet, USER_HEADERS, 'user_id', myUser.user_id, myUser);
+
+      // Sync couple_profiles rows to unpaired state for both users
+      const profilesSheet = getOrCreateSheet(SHEET_COUPLE_PROFILES, COUPLE_PROFILE_HEADERS);
+      const existingProfiles = sheetToObjects(profilesSheet, COUPLE_PROFILE_HEADERS);
+      [myUser, partnerUser].forEach((u) => {
+        if (!u) return;
+        const codeUpper = String(u.user_id || '').toUpperCase();
+        const existing = existingProfiles.find((p) => String(p.myCode || '').toUpperCase() === codeUpper);
+        if (existing) {
+          upsertRow(profilesSheet, COUPLE_PROFILE_HEADERS, 'id', existing.id, {
+            ...existing,
+            partnerName: '',
+            partnerCode: '',
+            isPaired: false,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      });
+
       return jsonResponse({ ok: true, user: toPublicUser(myUser) });
     }
 

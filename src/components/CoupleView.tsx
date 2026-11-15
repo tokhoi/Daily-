@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { STICKER_BY_ID } from '../constants/stickers';
 import type {
   CoupleNudge,
   CoupleProfile,
@@ -49,6 +50,7 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
   const [heartBurst, setHeartBurst] = useState(false);
   const [customNudge, setCustomNudge] = useState('');
   const [showPairEdit, setShowPairEdit] = useState(false);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [partnerCodeInput, setPartnerCodeInput] = useState(profile.partnerCode);
   const [partnerNameInput, setPartnerNameInput] = useState(profile.partnerName);
   const [joinRoomInput, setJoinRoomInput] = useState('');
@@ -267,14 +269,21 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
     <div className="animate-ios-page space-y-4 pb-6">
       {/* Couple % Comparison & Streak Card */}
       <div className="rounded-[26px] border border-pink-200/80 bg-gradient-to-br from-white via-pink-50/50 to-blue-50/40 p-4 shadow-[0_8px_28px_-8px_rgba(30,58,138,0.14)]">
-        <div className="flex items-center justify-between">
-          <div>
-            <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-              PHÒNG COUPLE • {profile.partnerCode || profile.myCode}
-            </span>
-            <h2 className="mt-1 text-sm font-extrabold text-blue-950">
-              {profile.myName} & {profile.partnerName}
-            </h2>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5">
+            <img
+              src={STICKER_BY_ID.love.src}
+              alt="Couple Sticker"
+              className="h-11 w-11 shrink-0 rounded-2xl object-contain drop-shadow-2xs"
+            />
+            <div>
+              <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
+                PHÒNG COUPLE • {profile.partnerCode || profile.myCode}
+              </span>
+              <h2 className="mt-1 text-sm font-extrabold text-blue-950">
+                {profile.myName} & {profile.partnerName}
+              </h2>
+            </div>
           </div>
           <button
             type="button"
@@ -311,14 +320,7 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                onUpdateProfile({
-                  ...profile,
-                  partnerCode: '',
-                  isPaired: false,
-                });
-                setShowPairEdit(false);
-              }}
+              onClick={() => setShowLeaveConfirm(true)}
               className="ios-press rounded-xl bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-500"
             >
               Rời room
@@ -509,6 +511,58 @@ export const CoupleView: React.FC<CoupleViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Confirm Leave Room Modal */}
+      {showLeaveConfirm && (
+        <div className="animate-ios-backdrop fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 backdrop-blur-xs">
+          <div className="animate-ios-sheet w-full max-w-[340px] rounded-[28px] border border-pink-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-rose-50 text-rose-500">
+                <GIcon name="logout" size={20} />
+              </span>
+              <div>
+                <h3 className="text-sm font-extrabold text-blue-950">
+                  Xác nhận rời phòng?
+                </h3>
+                <p className="text-[11px] font-medium text-slate-400">
+                  Phòng Couple • {profile.partnerCode}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs leading-relaxed text-slate-600">
+              Bạn có chắc muốn rời khỏi phòng cùng{' '}
+              <span className="font-bold text-blue-950">{profile.partnerName}</span> không?
+              Hệ thống sẽ gửi thông báo về cho {profile.partnerName} biết bạn đã rời room.
+            </p>
+
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(false)}
+                className="ios-press flex-1 rounded-2xl border border-pink-100 bg-pink-50/60 py-2.5 text-xs font-bold text-blue-950"
+              >
+                Ở lại
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLeaveConfirm(false);
+                  setShowPairEdit(false);
+                  onUpdateProfile({
+                    ...profile,
+                    partnerCode: '',
+                    isPaired: false,
+                  });
+                }}
+                className="ios-press flex-1 rounded-2xl bg-rose-500 py-2.5 text-xs font-extrabold text-white shadow-sm"
+              >
+                Xác nhận rời room
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

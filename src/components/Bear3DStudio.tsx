@@ -1,6 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
+import React, { useState } from 'react';
 import { GIcon } from './GIcon';
+import stickerWave from '../assets/stickers/sticker_wave.jpg';
+import stickerClap from '../assets/stickers/sticker_clap.jpg';
+import stickerLove from '../assets/stickers/sticker_love.jpg';
+import stickerChill from '../assets/stickers/sticker_chill.jpg';
+import stickerSleep from '../assets/stickers/sticker_sleep.jpg';
+import stickerCry from '../assets/stickers/sticker_cry.jpg';
 
 export type Bear3DAnim =
   | 'idle'
@@ -20,21 +25,38 @@ export type Bear3DAnim =
 
 export type Bear3DVariant = 'pink' | 'blue';
 
-const BEAR_ANIM_LABELS: Record<Bear3DAnim, string> = {
-  idle: 'đang thở nhẹ',
-  clap: 'đang vỗ tay vui mừng',
-  wave: 'đang vẫy chào',
-  poke: 'đang nhắc bạn hoàn thành việc',
-  dance: 'đang nhảy múa',
-  sleep: 'đang ngủ',
-  flex: 'đang tạo dáng khỏe khoắn',
-  cry: 'đang buồn và rơi nước mắt',
-  heart_pose: 'đang tạo hình trái tim',
-  dab: 'đang tạo dáng vui nhộn',
-  surprised: 'đang ngạc nhiên',
-  shy: 'đang ngượng ngùng',
-  think: 'đang suy nghĩ',
-  cheer: 'đang cổ vũ bạn',
+const STICKER_SRC_MAP: Record<Bear3DAnim, string> = {
+  idle: stickerChill,
+  think: stickerChill,
+  wave: stickerWave,
+  poke: stickerWave,
+  cheer: stickerWave,
+  clap: stickerClap,
+  dance: stickerClap,
+  flex: stickerClap,
+  dab: stickerClap,
+  heart_pose: stickerLove,
+  shy: stickerLove,
+  sleep: stickerSleep,
+  cry: stickerCry,
+  surprised: stickerCry,
+};
+
+const STICKER_MOTION_MAP: Record<Bear3DAnim, string> = {
+  idle: 'animate-plush-bounce',
+  think: 'animate-plush-bounce',
+  wave: 'animate-bounce',
+  poke: 'animate-bounce',
+  cheer: 'animate-bounce',
+  clap: 'animate-plush-bounce',
+  dance: 'animate-bounce',
+  flex: 'animate-pulse',
+  dab: 'animate-plush-bounce',
+  heart_pose: 'animate-pulse',
+  shy: 'animate-plush-bounce',
+  sleep: 'animate-pulse',
+  cry: 'animate-plush-bounce',
+  surprised: 'animate-bounce',
 };
 
 interface Bear3DCanvasProps {
@@ -44,1033 +66,66 @@ interface Bear3DCanvasProps {
   onTapBear?: () => void;
 }
 
-function createPlushTexture(): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 128, 128);
-    for (let i = 0; i < 3200; i++) {
-      const x = Math.random() * 128;
-      const y = Math.random() * 128;
-      const v = 232 + Math.floor(Math.random() * 23);
-      ctx.fillStyle = `rgb(${v},${v},${v})`;
-      ctx.fillRect(x, y, 2, 2);
-    }
-  }
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.wrapS = THREE.RepeatWrapping;
-  tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(4, 4);
-  return tex;
-}
-
-function createRadialGradientTexture(
-  innerColor: string,
-  outerColor: string
-): THREE.CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-  if (ctx) {
-    const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 64);
-    grad.addColorStop(0, innerColor);
-    grad.addColorStop(1, outerColor);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, 128, 128);
-  }
-  return new THREE.CanvasTexture(canvas);
-}
-
-function createChubbyHeadGeometry(): THREE.BufferGeometry {
-  const geo = new THREE.SphereGeometry(0.86, 48, 40);
-  const pos = geo.attributes.position;
-  for (let i = 0; i < pos.count; i++) {
-    let x = pos.getX(i);
-    let y = pos.getY(i);
-    let z = pos.getZ(i);
-
-    const cheekFactor = y < 0 ? 1 + Math.abs(y) * 0.16 : 1 - y * 0.08;
-    x *= cheekFactor * 1.07;
-    z *= cheekFactor * 0.96;
-    y *= 0.94;
-
-    if (z > 0 && y < 0.15) {
-      z += 0.07 * Math.max(0, 1 - Math.abs(x) * 1.4);
-    }
-    pos.setXYZ(i, x, y, z);
-  }
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function createTorsoGeometry(): THREE.BufferGeometry {
-  const pts = [
-    new THREE.Vector2(0.0, -0.82),
-    new THREE.Vector2(0.45, -0.78),
-    new THREE.Vector2(0.76, -0.58),
-    new THREE.Vector2(0.86, -0.25),
-    new THREE.Vector2(0.82, 0.12),
-    new THREE.Vector2(0.68, 0.45),
-    new THREE.Vector2(0.48, 0.68),
-    new THREE.Vector2(0.0, 0.74),
-  ];
-  const spline = new THREE.SplineCurve(pts);
-  const geo = new THREE.LatheGeometry(spline.getPoints(36), 44);
-  geo.scale(1.02, 1.0, 0.9);
-  geo.computeVertexNormals();
-  return geo;
-}
-
-function createHeartGeometry(): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  shape.moveTo(0, 0.25);
-  shape.bezierCurveTo(0, 0.25, -0.05, 0.4, -0.2, 0.4);
-  shape.bezierCurveTo(-0.4, 0.4, -0.4, 0.15, -0.4, 0.15);
-  shape.bezierCurveTo(-0.4, -0.05, -0.2, -0.22, 0, -0.35);
-  shape.bezierCurveTo(0.2, -0.22, 0.4, -0.05, 0.4, 0.15);
-  shape.bezierCurveTo(0.4, 0.15, 0.4, 0.4, 0.2, 0.4);
-  shape.bezierCurveTo(0.05, 0.4, 0, 0.25, 0, 0.25);
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
-    depth: 0.14,
-    bevelEnabled: true,
-    bevelSegments: 4,
-    steps: 1,
-    bevelSize: 0.06,
-    bevelThickness: 0.06,
-  });
-  geo.center();
-  geo.scale(0.32, 0.32, 0.32);
-  return geo;
-}
-
+/**
+ * 2D Cartoon Sticker Mascot display (replaces the previous 3D bear canvas).
+ * Keeps the exported component name `Bear3DCanvas` for drop-in compatibility.
+ */
 export const Bear3DCanvas: React.FC<Bear3DCanvasProps> = ({
   anim,
   variant,
-  height = 290,
+  height = 240,
   onTapBear,
 }) => {
-  const mountRef = useRef<HTMLDivElement | null>(null);
-  const animRef = useRef<Bear3DAnim>(anim);
-  const variantRef = useRef<Bear3DVariant>(variant);
-  const onTapRef = useRef(onTapBear);
-  const squashRef = useRef(0);
-
-  useEffect(() => {
-    animRef.current = anim;
-  }, [anim]);
-
-  useEffect(() => {
-    variantRef.current = variant;
-  }, [variant]);
-
-  useEffect(() => {
-    onTapRef.current = onTapBear;
-  }, [onTapBear]);
-
-  useEffect(() => {
-    const container = mountRef.current;
-    if (!container) return;
-
-    const width = container.clientWidth || 340;
-    const scene = new THREE.Scene();
-
-    const camera = new THREE.PerspectiveCamera(36, width / height, 0.1, 100);
-    camera.position.set(0, 0.35, 5.5);
-
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.08;
-    container.innerHTML = '';
-    container.appendChild(renderer.domElement);
-
-    // 3-Point Studio + Hemisphere Lighting
-    scene.add(new THREE.HemisphereLight(0xfff5fa, 0xc7d2fe, 1.15));
-
-    const keyLight = new THREE.DirectionalLight(0xffffff, 1.55);
-    keyLight.position.set(3.2, 5.5, 4.5);
-    scene.add(keyLight);
-
-    const fillLight = new THREE.DirectionalLight(0xfbcfe8, 0.75);
-    fillLight.position.set(-3.5, 1.5, 3.0);
-    scene.add(fillLight);
-
-    const rimLight = new THREE.DirectionalLight(0x93c5fd, 1.1);
-    rimLight.position.set(-2.5, 3.5, -4.0);
-    scene.add(rimLight);
-
-    const plushTex = createPlushTexture();
-    const shadowTex = createRadialGradientTexture(
-      'rgba(30, 58, 138, 0.22)',
-      'rgba(30, 58, 138, 0)'
-    );
-
-    const furMat = new THREE.MeshPhysicalMaterial({
-      color: variantRef.current === 'pink' ? 0xf9a8d4 : 0x7dd3fc,
-      map: plushTex,
-      roughness: 0.78,
-      sheen: 0.9,
-      sheenRoughness: 0.65,
-      sheenColor: new THREE.Color(0xffffff),
-    });
-
-    const accentFurMat = new THREE.MeshPhysicalMaterial({
-      color: variantRef.current === 'pink' ? 0xf472b6 : 0x3b82f6,
-      map: plushTex,
-      roughness: 0.72,
-      sheen: 0.8,
-      sheenRoughness: 0.6,
-      sheenColor: new THREE.Color(0xfff1f6),
-    });
-
-    const bellyMat = new THREE.MeshPhysicalMaterial({
-      color: 0xfff8fb,
-      map: plushTex,
-      roughness: 0.82,
-      sheen: 0.6,
-      sheenColor: new THREE.Color(0xffffff),
-    });
-
-    const scarfMat = new THREE.MeshPhysicalMaterial({
-      color: variantRef.current === 'pink' ? 0x1e3a8a : 0xf472b6,
-      map: plushTex,
-      roughness: 0.68,
-      sheen: 0.7,
-      sheenColor: new THREE.Color(0xffe4e6),
-    });
-    const palette = {
-      pink: {
-        fur: new THREE.Color(0xf9a8d4),
-        accent: new THREE.Color(0xf472b6),
-        scarf: new THREE.Color(0x1e3a8a),
-      },
-      blue: {
-        fur: new THREE.Color(0x7dd3fc),
-        accent: new THREE.Color(0x3b82f6),
-        scarf: new THREE.Color(0xf472b6),
-      },
-    };
-
-    const eyeMat = new THREE.MeshPhysicalMaterial({
-      color: 0x172554,
-      roughness: 0.08,
-      clearcoat: 1.0,
-      clearcoatRoughness: 0.06,
-    });
-
-    const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const cheekMat = new THREE.MeshStandardMaterial({
-      color: 0xfb7185,
-      roughness: 0.75,
-      transparent: true,
-      opacity: 0.58,
-    });
-    const tearMat = new THREE.MeshPhysicalMaterial({
-      color: 0x60a5fa,
-      roughness: 0.1,
-      clearcoat: 1,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const heartMat = new THREE.MeshPhysicalMaterial({
-      color: 0xf43f5e,
-      roughness: 0.25,
-      clearcoat: 0.8,
-    });
-    const mouthMat = new THREE.MeshStandardMaterial({
-      color: 0x542c42,
-      roughness: 0.75,
-    });
-    const tongueMat = new THREE.MeshStandardMaterial({
-      color: 0xf4729b,
-      roughness: 0.55,
-    });
-    const surpriseMat = new THREE.MeshStandardMaterial({
-      color: 0xffc857,
-      roughness: 0.45,
-      emissive: 0x543300,
-      emissiveIntensity: 0.18,
-    });
-
-    // Ground Contact Shadow
-    const shadowMesh = new THREE.Mesh(
-      new THREE.CircleGeometry(1.15, 32),
-      new THREE.MeshBasicMaterial({
-        map: shadowTex,
-        transparent: true,
-        depthWrite: false,
-      })
-    );
-    shadowMesh.rotation.x = -Math.PI / 2;
-    shadowMesh.position.set(0, -1.58, 0);
-    scene.add(shadowMesh);
-
-    // Root & Torso Pivot
-    const bear = new THREE.Group();
-    scene.add(bear);
-
-    const torsoGroup = new THREE.Group();
-    bear.add(torsoGroup);
-
-    const torso = new THREE.Mesh(createTorsoGeometry(), furMat);
-    torso.position.set(0, -0.58, 0);
-    torsoGroup.add(torso);
-
-    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.58, 32, 32), bellyMat);
-    belly.scale.set(0.95, 1.06, 0.52);
-    belly.position.set(0, -0.68, 0.5);
-    torsoGroup.add(belly);
-
-    const tail = new THREE.Mesh(new THREE.SphereGeometry(0.22, 20, 20), bellyMat);
-    tail.position.set(0, -1.06, -0.74);
-    torsoGroup.add(tail);
-
-    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.13, 18, 36), scarfMat);
-    collar.rotation.x = Math.PI / 2 + 0.08;
-    collar.position.set(0, 0.08, 0.02);
-    torsoGroup.add(collar);
-
-    const collarKnot = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 16), scarfMat);
-    collarKnot.scale.set(1.2, 0.9, 0.8);
-    collarKnot.position.set(0.24, 0.02, 0.45);
-    torsoGroup.add(collarKnot);
-
-    // Head Group + Articulated Ears + Expressive Face
-    const headGroup = new THREE.Group();
-    headGroup.position.set(0, 0.72, 0.02);
-    torsoGroup.add(headGroup);
-
-    const head = new THREE.Mesh(createChubbyHeadGeometry(), furMat);
-    headGroup.add(head);
-
-    const makeEar = (side: -1 | 1) => {
-      const ear = new THREE.Group();
-      ear.position.set(side * 0.64, 0.62, -0.06);
-      ear.rotation.z = side * -0.32;
-      const outer = new THREE.Mesh(new THREE.SphereGeometry(0.29, 24, 24), furMat);
-      outer.scale.set(1, 0.95, 0.68);
-      const inner = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 20), bellyMat);
-      inner.scale.set(1, 0.95, 0.42);
-      inner.position.set(0, -0.01, 0.145);
-      ear.add(outer, inner);
-      return ear;
-    };
-    const leftEar = makeEar(-1);
-    const rightEar = makeEar(1);
-    headGroup.add(leftEar, rightEar);
-
-    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(0.32, 28, 24), bellyMat);
-    muzzle.scale.set(1.2, 0.84, 0.68);
-    muzzle.position.set(0, -0.18, 0.72);
-    headGroup.add(muzzle);
-
-    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.095, 20, 16), eyeMat);
-    nose.scale.set(1.25, 0.85, 0.75);
-    nose.position.set(0, -0.08, 0.92);
-    headGroup.add(nose);
-
-    const smileCurveLeft = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.14, -0.2, 0.88),
-      new THREE.Vector3(-0.07, -0.25, 0.91),
-      new THREE.Vector3(0, -0.19, 0.92),
-    ]);
-    const smileCurveRight = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0, -0.19, 0.92),
-      new THREE.Vector3(0.07, -0.25, 0.91),
-      new THREE.Vector3(0.14, -0.2, 0.88),
-    ]);
-    const smileLeft = new THREE.Mesh(new THREE.TubeGeometry(smileCurveLeft, 14, 0.018, 8, false), eyeMat);
-    const smileRight = new THREE.Mesh(new THREE.TubeGeometry(smileCurveRight, 14, 0.018, 8, false), eyeMat);
-    headGroup.add(smileLeft, smileRight);
-
-    const mouthOpen = new THREE.Group();
-    const mouthCavity = new THREE.Mesh(new THREE.SphereGeometry(0.075, 18, 16), mouthMat);
-    mouthCavity.scale.set(1.05, 1.15, 0.55);
-    const tongue = new THREE.Mesh(new THREE.SphereGeometry(0.04, 14, 12), tongueMat);
-    tongue.scale.set(1.1, 0.58, 0.42);
-    tongue.position.set(0, -0.035, 0.026);
-    mouthOpen.add(mouthCavity, tongue);
-    mouthOpen.position.set(0, -0.24, 0.9);
-    mouthOpen.visible = false;
-    headGroup.add(mouthOpen);
-
-    const makeEye = (side: -1 | 1) => {
-      const eyeGroup = new THREE.Group();
-      eyeGroup.position.set(side * 0.31, 0.07, 0.76);
-      const eyeball = new THREE.Mesh(new THREE.SphereGeometry(0.105, 22, 22), eyeMat);
-      eyeball.scale.set(1, 1.08, 0.78);
-      const glintBig = new THREE.Mesh(new THREE.SphereGeometry(0.032, 12, 12), whiteMat);
-      glintBig.position.set(-0.032, 0.038, 0.072);
-      const glintSmall = new THREE.Mesh(new THREE.SphereGeometry(0.016, 10, 10), whiteMat);
-      glintSmall.position.set(0.03, -0.025, 0.076);
-      eyeGroup.add(eyeball, glintBig, glintSmall);
-      return eyeGroup;
-    };
-    const leftEye = makeEye(-1);
-    const rightEye = makeEye(1);
-    headGroup.add(leftEye, rightEye);
-
-    // Tear streams (visible in 'cry' meme mode)
-    const tearGroup = new THREE.Group();
-    const leftTear = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.16, 6, 10), tearMat);
-    leftTear.position.set(-0.32, -0.08, 0.77);
-    const rightTear = new THREE.Mesh(new THREE.CapsuleGeometry(0.03, 0.16, 6, 10), tearMat);
-    rightTear.position.set(0.32, -0.08, 0.77);
-    tearGroup.add(leftTear, rightTear);
-    tearGroup.visible = false;
-    headGroup.add(tearGroup);
-
-    const leftBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.085, 6, 10), accentFurMat);
-    leftBrow.rotation.z = Math.PI / 2 + 0.14;
-    leftBrow.position.set(-0.32, 0.25, 0.77);
-    const rightBrow = new THREE.Mesh(new THREE.CapsuleGeometry(0.018, 0.085, 6, 10), accentFurMat);
-    rightBrow.rotation.z = Math.PI / 2 - 0.14;
-    rightBrow.position.set(0.32, 0.25, 0.77);
-    headGroup.add(leftBrow, rightBrow);
-
-    const leftCheek = new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 18), cheekMat);
-    leftCheek.scale.set(1.25, 0.72, 0.32);
-    leftCheek.position.set(-0.52, -0.1, 0.67);
-    const rightCheek = new THREE.Mesh(new THREE.SphereGeometry(0.13, 18, 18), cheekMat);
-    rightCheek.scale.set(1.25, 0.72, 0.32);
-    rightCheek.position.set(0.52, -0.1, 0.67);
-    headGroup.add(leftCheek, rightCheek);
-
-    const surpriseGroup = new THREE.Group();
-    const exclamationStem = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.035, 0.2, 5, 10),
-      surpriseMat
-    );
-    exclamationStem.position.set(0.82, 0.69, 0.12);
-    const exclamationDot = new THREE.Mesh(new THREE.SphereGeometry(0.045, 12, 12), surpriseMat);
-    exclamationDot.position.set(0.82, 0.53, 0.12);
-    surpriseGroup.add(exclamationStem, exclamationDot);
-    surpriseGroup.visible = false;
-    headGroup.add(surpriseGroup);
-
-    const thoughtGroup = new THREE.Group();
-    const thoughtCloud = new THREE.Mesh(
-      new THREE.SphereGeometry(0.12, 16, 14),
-      new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.68 })
-    );
-    thoughtCloud.scale.set(1.55, 0.86, 0.48);
-    thoughtCloud.position.set(0.76, 0.71, 0.12);
-    thoughtGroup.add(thoughtCloud);
-    [0.67, 0.76, 0.85].forEach((x, index) => {
-      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 10), surpriseMat);
-      dot.position.set(x, 0.71, 0.19);
-      thoughtGroup.add(dot);
-      if (index === 0) {
-        const trail = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 10), thoughtCloud.material);
-        trail.position.set(0.62, 0.55, 0.1);
-        thoughtGroup.add(trail);
-      }
-    });
-    thoughtGroup.visible = false;
-    headGroup.add(thoughtGroup);
-
-    // Soft, rounded arms with simple mitten hands.
-    const upperArmGeo = new THREE.CapsuleGeometry(0.155, 0.16, 14, 20);
-    const forearmGeo = new THREE.CapsuleGeometry(0.145, 0.16, 14, 20);
-
-    const makeArticulatedArm = (side: -1 | 1) => {
-      const shoulder = new THREE.Group();
-      shoulder.position.set(side * 0.72, -0.14, 0.12);
-
-      const upperMesh = new THREE.Mesh(upperArmGeo, furMat);
-      upperMesh.position.set(side * 0.04, -0.12, 0.02);
-      upperMesh.rotation.z = side * 0.28;
-      shoulder.add(upperMesh);
-
-      const elbow = new THREE.Group();
-      elbow.position.set(side * 0.11, -0.26, 0.04);
-      const forearmMesh = new THREE.Mesh(forearmGeo, furMat);
-      forearmMesh.position.set(0, -0.12, 0.04);
-      const hand = new THREE.Group();
-      hand.position.set(0, -0.28, 0.07);
-      const mitten = new THREE.Mesh(new THREE.SphereGeometry(0.195, 24, 20), bellyMat);
-      mitten.scale.set(1.04, 1, 0.96);
-      hand.add(mitten);
-      elbow.add(forearmMesh, hand);
-
-      shoulder.add(elbow);
-      return { shoulder, elbow };
-    };
-
-    const leftArm = makeArticulatedArm(-1);
-    const rightArm = makeArticulatedArm(1);
-    torsoGroup.add(leftArm.shoulder, rightArm.shoulder);
-
-    // Articulated Legs + Feet with Paw Pads
-    const makeArticulatedLeg = (side: -1 | 1) => {
-      const hip = new THREE.Group();
-      hip.position.set(side * 0.42, -1.24, 0.08);
-      const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.28, 24, 20), accentFurMat);
-      shoe.scale.set(0.95, 0.72, 1.25);
-      shoe.position.set(0, -0.12, 0.1);
-      const pad = new THREE.Mesh(new THREE.SphereGeometry(0.15, 18, 16), bellyMat);
-      pad.scale.set(0.9, 0.85, 0.3);
-      pad.position.set(0, -0.14, 0.41);
-      const toeGeometry = new THREE.SphereGeometry(0.045, 10, 10);
-      const toes = [-0.095, 0, 0.095].map((x) => {
-        const toe = new THREE.Mesh(toeGeometry, bellyMat);
-        toe.scale.set(1, 0.85, 0.34);
-        toe.position.set(x, -0.1, 0.405);
-        return toe;
-      });
-      hip.add(shoe, pad, ...toes);
-      return hip;
-    };
-    const leftLeg = makeArticulatedLeg(-1);
-    const rightLeg = makeArticulatedLeg(1);
-    bear.add(leftLeg, rightLeg);
-
-    // Real 3D Heart Particles
-    const heartGeo = createHeartGeometry();
-    const heartGroup = new THREE.Group();
-    for (let i = 0; i < 4; i++) {
-      const h = new THREE.Mesh(heartGeo, heartMat);
-      h.position.set((i - 1.5) * 0.68, 1.65 + (i % 2) * 0.25, 0.2);
-      heartGroup.add(h);
-    }
-    scene.add(heartGroup);
-
-    // Pointer Drag 360° + Tap to Squash
-    let isDragging = false;
-    let movedDist = 0;
-    let prevX = 0;
-    let targetRotY = 0;
-    let activePointerId: number | null = null;
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
-      isDragging = true;
-      activePointerId = e.pointerId;
-      movedDist = 0;
-      prevX = e.clientX;
-      dom.setPointerCapture(e.pointerId);
-    };
-    const onPointerMove = (e: PointerEvent) => {
-      if (!isDragging || e.pointerId !== activePointerId) return;
-      const dx = e.clientX - prevX;
-      movedDist += Math.abs(dx);
-      prevX = e.clientX;
-      targetRotY += dx * 0.015;
-    };
-    const finishPointer = (e: PointerEvent, allowTap: boolean) => {
-      if (!isDragging || e.pointerId !== activePointerId) return;
-      if (allowTap && movedDist < 6) {
-        squashRef.current = 1.0;
-        onTapRef.current?.();
-      }
-      isDragging = false;
-      activePointerId = null;
-    };
-    const onPointerUp = (e: PointerEvent) => finishPointer(e, true);
-    const onPointerCancel = (e: PointerEvent) => finishPointer(e, false);
-
-    const dom = renderer.domElement;
-    dom.addEventListener('pointerdown', onPointerDown);
-    dom.addEventListener('pointermove', onPointerMove);
-    dom.addEventListener('pointerup', onPointerUp);
-    dom.addEventListener('pointercancel', onPointerCancel);
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        targetRotY -= 0.28;
-      }
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        targetRotY += 0.28;
-      }
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        squashRef.current = 1;
-        onTapRef.current?.();
-      }
-    };
-    container.addEventListener('keydown', onKeyDown);
-
-    const resizeRenderer = () => {
-      const nextWidth = container.clientWidth;
-      if (!nextWidth) return;
-      camera.aspect = nextWidth / height;
-      camera.updateProjectionMatrix();
-      renderer.setSize(nextWidth, height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    };
-    const resizeObserver = new ResizeObserver(resizeRenderer);
-    resizeObserver.observe(container);
-
-    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    let reduceMotion = motionQuery.matches;
-    const onMotionPreferenceChange = (event: MediaQueryListEvent) => {
-      reduceMotion = event.matches;
-    };
-    motionQuery.addEventListener('change', onMotionPreferenceChange);
-
-    let rafId = 0;
-    const clock = new THREE.Clock();
-
-    const animate = () => {
-      rafId = requestAnimationFrame(animate);
-      const t = reduceMotion ? 0 : clock.getElapsedTime();
-      const currentAnim = animRef.current;
-      const currentPalette = palette[variantRef.current];
-      furMat.color.lerp(currentPalette.fur, 0.12);
-      accentFurMat.color.lerp(currentPalette.accent, 0.12);
-      scarfMat.color.lerp(currentPalette.scarf, 0.12);
-
-      squashRef.current *= 0.86;
-      const sq = Math.sin(squashRef.current * Math.PI) * 0.14;
-
-      // Reset all joints
-      bear.position.y = 0;
-      bear.rotation.z = 0;
-      bear.scale.set(1 + sq, 1 - sq * 0.85, 1 + sq);
-      torsoGroup.rotation.set(0, 0, 0);
-      headGroup.rotation.set(0, 0, 0);
-      leftEar.rotation.set(0, 0, 0.32);
-      rightEar.rotation.set(0, 0, -0.32);
-
-      leftArm.shoulder.rotation.set(0, 0, -0.82);
-      leftArm.elbow.rotation.set(0, 0, 0);
-      rightArm.shoulder.rotation.set(0, 0, 0.82);
-      rightArm.elbow.rotation.set(0, 0, 0);
-
-      leftLeg.rotation.set(0, 0, 0);
-      rightLeg.rotation.set(0, 0, 0);
-
-      leftEye.scale.set(1, 1, 1);
-      rightEye.scale.set(1, 1, 1);
-      leftEye.rotation.set(0, 0, 0);
-      rightEye.rotation.set(0, 0, 0);
-      leftBrow.position.y = 0.25;
-      rightBrow.position.y = 0.25;
-      leftBrow.rotation.z = Math.PI / 2 + 0.14;
-      rightBrow.rotation.z = Math.PI / 2 - 0.14;
-      mouthOpen.scale.set(1, 1, 1);
-      mouthOpen.visible = false;
-      tearGroup.visible = false;
-      heartGroup.visible = false;
-      surpriseGroup.visible = false;
-      thoughtGroup.visible = false;
-      cheekMat.opacity = 0.58;
-
-      if (currentAnim === 'idle') {
-        bear.position.y = Math.sin(t * 2.1) * 0.05;
-        headGroup.rotation.z = Math.sin(t * 1.3) * 0.05;
-        leftEar.rotation.z = 0.32 + Math.sin(t * 2.5) * 0.05;
-        rightEar.rotation.z = -0.32 - Math.sin(t * 2.5) * 0.05;
-      leftArm.shoulder.rotation.z = -0.92 + Math.sin(t * 2.1) * 0.05;
-      rightArm.shoulder.rotation.z = 0.92 - Math.sin(t * 2.1) * 0.05;
-        const blinkPhase = t % 3.4;
-        const blink = Math.max(0, 1 - Math.abs(blinkPhase - 3.25) / 0.09);
-        leftEye.scale.y = Math.max(0.12, 1 - blink * 0.9);
-        rightEye.scale.y = Math.max(0.12, 1 - blink * 0.9);
-      } else if (currentAnim === 'clap') {
-        bear.position.y = Math.abs(Math.sin(t * 6.5)) * 0.18;
-        leftArm.shoulder.rotation.set(-0.85, 0.25, -0.55);
-        leftArm.elbow.rotation.set(-0.5, 0.55 + Math.sin(t * 13) * 0.45, 0);
-        rightArm.shoulder.rotation.set(-0.85, -0.25, 0.55);
-        rightArm.elbow.rotation.set(-0.5, -0.55 - Math.sin(t * 13) * 0.45, 0);
-        headGroup.rotation.z = Math.sin(t * 6.5) * 0.08;
-        leftBrow.position.y = 0.28;
-        rightBrow.position.y = 0.28;
-        mouthOpen.visible = true;
-        mouthOpen.scale.set(0.9, 0.9, 0.9);
-        heartGroup.visible = true;
-        heartGroup.children.forEach((c, idx) => {
-          c.position.y = 1.55 + ((t * 0.85 + idx * 0.35) % 1) * 0.85;
-          c.rotation.y = t * 3;
-        });
-      } else if (currentAnim === 'wave') {
-        bear.position.y = Math.sin(t * 2.4) * 0.05;
-        rightArm.shoulder.rotation.set(-0.2, 0, 2.0);
-        rightArm.elbow.rotation.z = Math.sin(t * 8) * 0.42;
-        headGroup.rotation.z = -0.12;
-        rightEye.scale.y = 0.2; // cute wink!
-      } else if (currentAnim === 'poke') {
-        bear.position.y = Math.abs(Math.sin(t * 8.5)) * 0.11;
-        headGroup.rotation.x = Math.sin(t * 8.5) * 0.14;
-        leftArm.shoulder.rotation.x = -0.95;
-        leftArm.elbow.rotation.x = -0.45;
-        rightArm.shoulder.rotation.x = -0.95;
-        rightArm.elbow.rotation.x = -0.45;
-        leftLeg.rotation.x = Math.sin(t * 8.5) * 0.25;
-        rightLeg.rotation.x = -Math.sin(t * 8.5) * 0.25;
-      } else if (currentAnim === 'dance') {
-        bear.position.y = Math.abs(Math.sin(t * 7)) * 0.22;
-        torsoGroup.rotation.z = Math.sin(t * 3.5) * 0.14;
-        leftArm.shoulder.rotation.z = -1.2 + Math.sin(t * 7) * 0.55;
-        leftArm.elbow.rotation.z = 0.65;
-        rightArm.shoulder.rotation.z = 1.2 + Math.sin(t * 7) * 0.55;
-        rightArm.elbow.rotation.z = -0.65;
-        leftLeg.rotation.x = Math.sin(t * 7) * 0.35;
-        rightLeg.rotation.x = -Math.sin(t * 7) * 0.35;
-        if (!isDragging) targetRotY += 0.022;
-        heartGroup.visible = true;
-        heartGroup.children.forEach((c, idx) => {
-          c.position.y = 1.65 + Math.sin(t * 4 + idx) * 0.25;
-          c.rotation.y = t * 4;
-        });
-      } else if (currentAnim === 'sleep') {
-        bear.position.y = -0.1 + Math.sin(t * 1.3) * 0.035;
-        headGroup.rotation.set(0.28, 0, 0.2);
-        leftEar.rotation.z = 0.55;
-        rightEar.rotation.z = -0.55;
-        leftEye.scale.y = 0.1;
-        rightEye.scale.y = 0.1;
-      } else if (currentAnim === 'flex') {
-        bear.position.y = Math.sin(t * 4) * 0.04;
-        torsoGroup.rotation.x = -0.06;
-        leftArm.shoulder.rotation.set(0, 0, -1.45);
-        leftArm.elbow.rotation.set(0, 0, -1.35 + Math.sin(t * 6) * 0.15);
-        rightArm.shoulder.rotation.set(0, 0, 1.45);
-        rightArm.elbow.rotation.set(0, 0, 1.35 - Math.sin(t * 6) * 0.15);
-        leftBrow.rotation.z = Math.PI / 2 - 0.18;
-        rightBrow.rotation.z = Math.PI / 2 + 0.18;
-      } else if (currentAnim === 'cry') {
-        bear.position.y = -0.06 + Math.abs(Math.sin(t * 12)) * 0.03;
-        headGroup.rotation.set(0.18, Math.sin(t * 10) * 0.08, 0);
-        leftEar.rotation.z = 0.65;
-        rightEar.rotation.z = -0.65;
-        leftArm.shoulder.rotation.set(-1.1, 0.2, -0.35);
-        leftArm.elbow.rotation.set(-0.9, 0, 0);
-        rightArm.shoulder.rotation.set(-1.1, -0.2, 0.35);
-        rightArm.elbow.rotation.set(-0.9, 0, 0);
-        leftEye.scale.y = 0.22;
-        rightEye.scale.y = 0.22;
-        tearGroup.visible = true;
-        leftTear.position.y = -0.12 - ((t * 1.6) % 0.18);
-        rightTear.position.y = -0.12 - (((t + 0.5) * 1.6) % 0.18);
-      } else if (currentAnim === 'heart_pose') {
-        bear.position.y = Math.sin(t * 3) * 0.06;
-        leftArm.shoulder.rotation.set(-0.3, 0, -2.15);
-        leftArm.elbow.rotation.set(0, 0, 1.15);
-        rightArm.shoulder.rotation.set(-0.3, 0, 2.15);
-        rightArm.elbow.rotation.set(0, 0, -1.15);
-        headGroup.rotation.z = Math.sin(t * 2) * 0.07;
-        heartGroup.visible = true;
-        heartGroup.children.forEach((c, idx) => {
-          c.position.y = 1.7 + Math.sin(t * 3.5 + idx) * 0.22;
-          c.rotation.y = t * 3;
-        });
-      } else if (currentAnim === 'dab') {
-        torsoGroup.rotation.z = 0.18;
-        headGroup.rotation.set(0.32, -0.35, 0.28);
-        leftArm.shoulder.rotation.set(-0.7, 0.4, -1.2);
-        leftArm.elbow.rotation.set(-0.4, 0.9, 0);
-        rightArm.shoulder.rotation.set(-0.2, 0, 2.15);
-        rightArm.elbow.rotation.set(0, 0, 0.1);
-        leftEye.scale.y = 0.2;
-        rightEye.scale.y = 0.2;
-      } else if (currentAnim === 'surprised') {
-        bear.position.y = Math.abs(Math.sin(t * 4.5)) * 0.1;
-        headGroup.rotation.z = Math.sin(t * 2.2) * 0.045;
-        leftEar.rotation.z = 0.18;
-        rightEar.rotation.z = -0.18;
-        leftArm.shoulder.rotation.z = -1.05;
-        rightArm.shoulder.rotation.z = 1.05;
-        leftEye.scale.set(1.08, 1.28, 1);
-        rightEye.scale.set(1.08, 1.28, 1);
-        leftBrow.position.y = 0.37;
-        rightBrow.position.y = 0.37;
-        mouthOpen.visible = true;
-        mouthOpen.scale.set(1.28, 1.42, 1.1);
-        surpriseGroup.visible = true;
-        cheekMat.opacity = 0.34;
-      } else if (currentAnim === 'shy') {
-        bear.position.y = Math.sin(t * 2.3) * 0.025;
-        headGroup.rotation.z = 0.2 + Math.sin(t * 1.7) * 0.025;
-        leftEar.rotation.z = 0.48;
-        rightEar.rotation.z = -0.6;
-        leftArm.shoulder.rotation.z = -1.15;
-        leftArm.elbow.rotation.z = 0.78;
-        rightArm.shoulder.rotation.z = 1.15;
-        rightArm.elbow.rotation.z = -0.78;
-        leftEye.scale.y = 0.62;
-        rightEye.scale.y = 0.62;
-        leftBrow.position.y = 0.21;
-        rightBrow.position.y = 0.21;
-        cheekMat.opacity = 0.9;
-        heartGroup.visible = true;
-        heartGroup.children.forEach((c, idx) => {
-          c.position.y = 1.58 + Math.sin(t * 2.6 + idx) * 0.12;
-          c.rotation.y = t * 1.8;
-        });
-      } else if (currentAnim === 'think') {
-        headGroup.rotation.z = -0.08 + Math.sin(t * 1.2) * 0.025;
-        rightArm.shoulder.rotation.set(-0.42, 0, 0.62);
-        rightArm.elbow.rotation.set(-0.48, 0, -1.2);
-        leftArm.shoulder.rotation.z = -0.1;
-        leftEye.rotation.y = 0.16;
-        rightEye.rotation.y = 0.16;
-        leftBrow.position.y = 0.34;
-        leftBrow.rotation.z = Math.PI / 2 + 0.28;
-        thoughtGroup.visible = true;
-      } else if (currentAnim === 'cheer') {
-        bear.position.y = Math.abs(Math.sin(t * 5.8)) * 0.16;
-        torsoGroup.rotation.z = Math.sin(t * 3) * 0.06;
-        leftArm.shoulder.rotation.z = -1.65 + Math.sin(t * 5.8) * 0.08;
-        rightArm.shoulder.rotation.z = 1.65 - Math.sin(t * 5.8) * 0.08;
-        leftArm.elbow.rotation.z = -0.24;
-        rightArm.elbow.rotation.z = 0.24;
-        leftLeg.rotation.x = Math.sin(t * 5.8) * 0.22;
-        rightLeg.rotation.x = -Math.sin(t * 5.8) * 0.22;
-        mouthOpen.visible = true;
-        heartGroup.visible = true;
-        heartGroup.children.forEach((c, idx) => {
-          c.position.y = 1.6 + Math.sin(t * 3.2 + idx) * 0.24;
-          c.rotation.y = t * 2.5;
-        });
-      }
-
-      const shadowScale = Math.max(0.75, 1 - bear.position.y * 0.45);
-      shadowMesh.scale.set(shadowScale, shadowScale, 1);
-
-      bear.rotation.y += (targetRotY - bear.rotation.y) * 0.12;
-      renderer.render(scene, camera);
-    };
-
-    animate();
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      dom.removeEventListener('pointerdown', onPointerDown);
-      dom.removeEventListener('pointermove', onPointerMove);
-      dom.removeEventListener('pointerup', onPointerUp);
-      dom.removeEventListener('pointercancel', onPointerCancel);
-      container.removeEventListener('keydown', onKeyDown);
-      resizeObserver.disconnect();
-      motionQuery.removeEventListener('change', onMotionPreferenceChange);
-
-      const geometries = new Set<THREE.BufferGeometry>();
-      const materials = new Set<THREE.Material>();
-      const textures = new Set<THREE.Texture>();
-      scene.traverse((object) => {
-        if (!(object instanceof THREE.Mesh)) return;
-        geometries.add(object.geometry);
-        const objectMaterials = Array.isArray(object.material) ? object.material : [object.material];
-        objectMaterials.forEach((material) => {
-          materials.add(material);
-          Object.values(material).forEach((value) => {
-            if (value instanceof THREE.Texture) textures.add(value);
-          });
-        });
-      });
-      geometries.forEach((geometry) => geometry.dispose());
-      materials.forEach((material) => material.dispose());
-      textures.forEach((texture) => texture.dispose());
-      renderer.dispose();
-    };
-  }, [height]);
+  const [popped, setPopped] = useState(false);
+  const src = STICKER_SRC_MAP[anim] || stickerWave;
+  const motionClass = STICKER_MOTION_MAP[anim] || 'animate-plush-bounce';
+
+  const handleTap = () => {
+    setPopped(true);
+    setTimeout(() => setPopped(false), 450);
+    onTapBear?.();
+  };
+
+  const imgSize = Math.max(120, Math.min(height - 20, 230));
 
   return (
     <div
-      ref={mountRef}
-      style={{ height }}
-      role="group"
-      aria-label={`Bé Gấu ${BEAR_ANIM_LABELS[anim]}. Dùng phím mũi tên để xoay, Enter hoặc dấu cách để chạm.`}
-      aria-keyshortcuts="ArrowLeft ArrowRight Enter Space"
-      tabIndex={0}
-      className="w-full cursor-grab touch-none rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-pink-400 active:cursor-grabbing"
-    />
-  );
-};
-
-type Bear2DCanvasProps = Bear3DCanvasProps;
-
-const Bear2DCanvas: React.FC<Bear2DCanvasProps> = ({
-  anim,
-  variant,
-  height = 285,
-  onTapBear,
-}) => {
-  const gradientId = `bear-fur-${React.useId().replace(/:/g, '')}`;
-  const furColors =
-    variant === 'pink'
-      ? { light: '#FBCFE8', main: '#F472B6', dark: '#DB5B9D', scarf: '#1E3A8A' }
-      : { light: '#BAE6FD', main: '#38BDF8', dark: '#1685C0', scarf: '#DB5B9D' };
-  const armPose: Record<Bear3DAnim, [number, number]> = {
-    idle: [0, 0],
-    clap: [-166, 166],
-    wave: [0, -120],
-    poke: [-135, 135],
-    dance: [-158, 145],
-    sleep: [0, 0],
-    flex: [-132, 132],
-    cry: [118, -118],
-    heart_pose: [-166, 166],
-    dab: [-52, -126],
-    surprised: [-124, 124],
-    shy: [-145, 145],
-    think: [0, -82],
-    cheer: [-132, 132],
-  };
-  const [leftArmAngle, rightArmAngle] = armPose[anim];
-  const eyesClosed = anim === 'sleep' || anim === 'shy';
-  const blush = anim === 'shy' ? 0.9 : anim === 'surprised' ? 0.28 : 0.55;
-  const showHearts = ['clap', 'dance', 'heart_pose', 'shy', 'cheer'].includes(anim);
-  const openMouth = ['clap', 'dance', 'surprised', 'cheer'].includes(anim);
-  const motionClass =
-    anim === 'sleep'
-      ? 'bear2d-motion--sleep'
-      : anim === 'dance'
-        ? 'bear2d-motion--dance'
-        : 'bear2d-motion--float';
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onTapBear?.();
-    }
-  };
-
-  return (
-    <div
+      onClick={handleTap}
       role="button"
       tabIndex={0}
-      aria-label={`Chạm để cưng nựng Bé Gấu ${BEAR_ANIM_LABELS[anim]}.`}
-      onClick={onTapBear}
-      onKeyDown={handleKeyDown}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') handleTap();
+      }}
       style={{ height }}
-      className="flex w-full cursor-pointer items-center justify-center rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-pink-400"
+      className={`relative flex w-full cursor-pointer select-none items-center justify-center overflow-hidden rounded-[26px] transition ${
+        variant === 'blue'
+          ? 'bg-gradient-to-b from-sky-50/70 via-blue-50/40 to-white/60'
+          : 'bg-gradient-to-b from-pink-50/70 via-rose-50/30 to-white/60'
+      }`}
+      aria-label="Sticker 2D tương tác"
     >
-      <svg
-        viewBox="0 0 320 280"
-        width="100%"
-        height="100%"
-        aria-hidden="true"
-        className="bear2d-character overflow-visible"
+      <div
+        className={`relative flex items-center justify-center transition-transform duration-300 ${
+          popped ? 'scale-110 -rotate-3' : 'hover:scale-105'
+        } ${motionClass}`}
       >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0.9" y2="1">
-            <stop offset="0%" stopColor={furColors.light} />
-            <stop offset="58%" stopColor={furColors.main} />
-            <stop offset="100%" stopColor={furColors.dark} />
-          </linearGradient>
-          <filter id={`${gradientId}-shadow`} x="-40%" y="-40%" width="180%" height="180%">
-            <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#6b3153" floodOpacity="0.2" />
-          </filter>
-        </defs>
-
-        <ellipse cx="160" cy="257" rx="70" ry="10" fill="#1e3a8a" opacity="0.12" />
-        <g className={`bear2d-motion ${motionClass}`} filter={`url(#${gradientId}-shadow)`}>
-          <g transform={`rotate(${leftArmAngle} 112 174)`}>
-            <path d="M112 173 Q84 177 59 197" fill="none" stroke={furColors.dark} strokeWidth="25" strokeLinecap="round" />
-            <path d="M112 171 Q84 175 59 195" fill="none" stroke={`url(#${gradientId})`} strokeWidth="20" strokeLinecap="round" />
-            <circle cx="57" cy="195" r="15" fill="#FFF5F8" stroke="#E9DCE5" strokeWidth="1.5" />
-          </g>
-          <g transform={`rotate(${rightArmAngle} 208 174)`}>
-            <path d="M208 173 Q236 177 261 197" fill="none" stroke={furColors.dark} strokeWidth="25" strokeLinecap="round" />
-            <path d="M208 171 Q236 175 261 195" fill="none" stroke={`url(#${gradientId})`} strokeWidth="20" strokeLinecap="round" />
-            <circle cx="263" cy="195" r="15" fill="#FFF5F8" stroke="#E9DCE5" strokeWidth="1.5" />
-          </g>
-
-          <ellipse cx="132" cy="239" rx="24" ry="16" fill={furColors.dark} />
-          <ellipse cx="188" cy="239" rx="24" ry="16" fill={furColors.dark} />
-          <ellipse cx="132" cy="237" rx="20" ry="12" fill={furColors.main} />
-          <ellipse cx="188" cy="237" rx="20" ry="12" fill={furColors.main} />
-          <ellipse cx="132" cy="240" rx="9" ry="4" fill="#FFF5F8" opacity="0.92" />
-          <ellipse cx="188" cy="240" rx="9" ry="4" fill="#FFF5F8" opacity="0.92" />
-
-          <ellipse cx="160" cy="204" rx="55" ry="45" fill={furColors.dark} />
-          <ellipse cx="160" cy="201" rx="51" ry="43" fill={`url(#${gradientId})`} />
-          <ellipse cx="160" cy="207" rx="28" ry="27" fill="#FFF5F8" opacity="0.95" />
-
-          <path d="M125 158 Q160 175 195 158 L191 169 Q160 184 129 169Z" fill={furColors.scarf} />
-          <circle cx="181" cy="169" r="8" fill={furColors.scarf} />
-
-          <g className="bear2d-head">
-            <circle cx="112" cy="60" r="25" fill={furColors.dark} />
-            <circle cx="208" cy="60" r="25" fill={furColors.dark} />
-            <circle cx="112" cy="60" r="19" fill={`url(#${gradientId})`} />
-            <circle cx="208" cy="60" r="19" fill={`url(#${gradientId})`} />
-            <circle cx="112" cy="62" r="11" fill="#FFF5F8" opacity="0.92" />
-            <circle cx="208" cy="62" r="11" fill="#FFF5F8" opacity="0.92" />
-
-            <circle cx="160" cy="111" r="65" fill={furColors.dark} />
-            <circle cx="160" cy="106" r="61" fill={`url(#${gradientId})`} />
-            <ellipse cx="160" cy="132" rx="25" ry="18" fill="#FFF5F8" />
-
-            <ellipse cx="160" cy="120" rx="7" ry="5" fill="#1E3A8A" />
-            <ellipse cx="157.5" cy="118.5" rx="2" ry="1.4" fill="#FFFFFF" />
-
-            <ellipse cx="124" cy="132" rx="12" ry="7" fill="#FB7185" opacity={blush} />
-            <ellipse cx="196" cy="132" rx="12" ry="7" fill="#FB7185" opacity={blush} />
-
-            {eyesClosed ? (
-              <g fill="none" stroke="#172554" strokeWidth="4" strokeLinecap="round">
-                <path d="M132 105 Q140 112 148 105" />
-                <path d="M172 105 Q180 112 188 105" />
-              </g>
-            ) : (
-              <g>
-                <ellipse cx="140" cy="101" rx={anim === 'surprised' ? 7 : 5.5} ry={anim === 'surprised' ? 9 : 7.5} fill="#172554" />
-                <ellipse cx="180" cy="101" rx={anim === 'surprised' ? 7 : 5.5} ry={anim === 'surprised' ? 9 : 7.5} fill="#172554" />
-                <circle cx="138" cy="98" r="2" fill="#FFFFFF" />
-                <circle cx="178" cy="98" r="2" fill="#FFFFFF" />
-              </g>
-            )}
-
-            {anim === 'surprised' ? (
-              <ellipse cx="160" cy="143" rx="8" ry="10" fill="#542C42" />
-            ) : openMouth ? (
-              <path d="M151 143 Q160 150 169 143 Q169 157 160 157 Q151 157 151 143Z" fill="#542C42" />
-            ) : anim === 'cry' ? (
-              <path d="M152 149 Q160 140 168 149" fill="none" stroke="#542C42" strokeWidth="3" strokeLinecap="round" />
-            ) : (
-              <path d="M151 143 Q160 151 169 143" fill="none" stroke="#542C42" strokeWidth="3" strokeLinecap="round" />
-            )}
-
-            {anim === 'surprised' && (
-              <g fill="none" stroke="#6B3153" strokeWidth="4" strokeLinecap="round">
-                <path d="M132 86 Q140 81 148 86" />
-                <path d="M172 86 Q180 81 188 86" />
-              </g>
-            )}
-            {anim === 'cry' && (
-              <g className="bear2d-tears" fill="#60A5FA" opacity="0.9">
-                <path d="M137 112 C131 122 132 128 137 129 C142 128 143 122 137 112Z" />
-                <path d="M183 112 C177 122 178 128 183 129 C188 128 189 122 183 112Z" />
-              </g>
-            )}
-          </g>
-        </g>
-
-        {showHearts && (
-          <g className="bear2d-hearts" fill="#F43F5E">
-            <path d="M99 49 C95 43 86 47 89 54 L99 63 L109 54 C112 47 103 43 99 49Z" />
-            <path d="M223 77 C219 71 210 75 213 82 L223 91 L233 82 C236 75 227 71 223 77Z" opacity="0.8" />
-          </g>
+        <img
+          src={src}
+          alt={`Sticker ${anim}`}
+          style={{
+            width: imgSize,
+            height: imgSize,
+            filter: variant === 'blue' ? 'hue-rotate(195deg) saturate(0.95)' : undefined,
+          }}
+          className="rounded-[28px] object-contain drop-shadow-[0_12px_22px_rgba(244,114,182,0.28)]"
+          draggable={false}
+        />
+        {popped && (
+          <span className="pointer-events-none absolute -top-2 -right-2 animate-ping text-lg">
+            💖
+          </span>
         )}
-        {anim === 'surprised' && (
-          <g fill="#F59E0B" stroke="#FFFFFF" strokeWidth="2">
-            <rect x="219" y="35" width="7" height="22" rx="3.5" />
-            <circle cx="222.5" cy="64" r="4" />
-          </g>
-        )}
-        {anim === 'think' && (
-          <g>
-            <ellipse cx="226" cy="52" rx="22" ry="14" fill="#FFFFFF" opacity="0.95" />
-            <circle cx="205" cy="69" r="5" fill="#FFFFFF" />
-            <circle cx="220" cy="52" r="2" fill="#1E3A8A" />
-            <circle cx="226" cy="52" r="2" fill="#1E3A8A" />
-            <circle cx="232" cy="52" r="2" fill="#1E3A8A" />
-          </g>
-        )}
-        {anim === 'sleep' && (
-          <text x="222" y="52" fill="#1E3A8A" fontSize="17" fontWeight="800" className="bear2d-zzz">Zzz</text>
-        )}
-      </svg>
+      </div>
     </div>
   );
 };
@@ -1081,20 +136,20 @@ const ANIM_PRESETS: {
   meme: string;
   icon: string;
 }[] = [
-  { id: 'idle', label: 'Thở nhẹ', meme: 'Chill phết, làm ly trà sữa hông? 🧋', icon: 'pets' },
+  { id: 'idle', label: 'Trà sữa chill', meme: 'Chill phết, làm ly trà sữa hông? 🧋', icon: 'pets' },
   { id: 'clap', label: 'Đỉnh nóc', meme: 'Đỉnh nóc, kịch trần, bay phấp phới! 🔥', icon: 'favorite' },
   { id: 'wave', label: 'Vẫy chào', meme: 'Hello cưng, nay tick đủ task chưa đó? 👋', icon: 'wb_sunny' },
   { id: 'poke', label: 'Chọc nhắc', meme: 'Dậy làm việc đi bạn ơi, đừng lười nữa!! 🔔', icon: 'notifications_active' },
   { id: 'dance', label: 'Quẩy meme', meme: 'Gét gô!! Hết nước chấm luôn 💃✨', icon: 'auto_awesome' },
-  { id: 'sleep', label: 'Oải chưởng', meme: 'Oải cả chưởng... cho gấu ngủ xíu 💤', icon: 'bedtime' },
-  { id: 'flex', label: 'Flex cơ', meme: 'Over hợp luôn! Cơ bắp uy tín chưa 💪', icon: 'fitness_center' },
+  { id: 'sleep', label: 'Oải chưởng', meme: 'Oải cả chưởng... cho bé ngủ xíu 💤', icon: 'bedtime' },
+  { id: 'flex', label: 'Flex nhẹ', meme: 'Over hợp luôn! Quá đỉnh quá uy tín 💪', icon: 'fitness_center' },
   { id: 'cry', label: 'Tụt mood', meme: 'Cứu bé với, deadline dí quá trời 😭', icon: 'rainy' },
   { id: 'heart_pose', label: 'Bắn tim', meme: 'Mãi keo nha, yêu cậu x1000 🫶💖', icon: 'favorite' },
-  { id: 'dab', label: 'Slay / Dab', meme: 'Slayyyy! Không làm mà đòi có ăn thì... 😎', icon: 'flag' },
-  { id: 'surprised', label: 'Ủa, bất ngờ!', meme: 'Ủa gì vậy trời, gấu bất ngờ thiệt đó! 😲', icon: 'auto_awesome' },
-  { id: 'shy', label: 'Ngại quá đi', meme: 'Được khen cái gấu ngại ngang luôn á 🥰', icon: 'favorite' },
-  { id: 'think', label: 'Để gấu nghĩ', meme: 'Hmm, để gấu suy nghĩ cùng bạn nha 🤔', icon: 'edit_note' },
-  { id: 'cheer', label: 'Cổ vũ bạn', meme: 'Bạn làm được mà! Gấu cổ vũ hết mình nè 📣', icon: 'wb_sunny' },
+  { id: 'dab', label: 'Slay hết nấc', meme: 'Slayyyy! Không làm mà đòi có ăn thì... 😎', icon: 'flag' },
+  { id: 'surprised', label: 'Ủa, bất ngờ!', meme: 'Ủa gì vậy trời, bất ngờ thiệt đó! 😲', icon: 'auto_awesome' },
+  { id: 'shy', label: 'Ngại quá đi', meme: 'Được khen cái ngại ngang luôn á 🥰', icon: 'favorite' },
+  { id: 'think', label: 'Để nghĩ xíu', meme: 'Hmm, để bé suy nghĩ cùng bạn nha 🤔', icon: 'edit_note' },
+  { id: 'cheer', label: 'Cổ vũ bạn', meme: 'Bạn làm được mà! Cổ vũ hết mình nè 📣', icon: 'wb_sunny' },
 ];
 
 interface BearChatMessage {
@@ -1108,42 +163,39 @@ const QUICK_CHAT_PROMPTS = [
   'Đỉnh nóc kịch trần!',
   'Gét gô quẩy lên',
   'Oải cả chưởng quá',
-  'Bắn tim đi gấu',
-  'Flex nhẹ cái xem',
+  'Bắn tim đi nè',
   'Deadline dí quá cứu bé',
-  'Gấu ngại quá',
-  'Ủa bất ngờ vậy',
-  'Nghĩ giúp mình đi',
+  'Ngại quá đi à',
 ];
 
 function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
   const lower = text.toLowerCase();
   if (lower.includes('ngủ') || lower.includes('mệt') || lower.includes('oải')) {
-    return { reply: 'Oải cả chưởng thì nghỉ xíu đi bạn hiền, gấu canh giấc cho 💤', anim: 'sleep' };
+    return { reply: 'Oải cả chưởng thì nghỉ xíu đi bạn hiền, bé canh giấc cho 💤', anim: 'sleep' };
   }
   if (lower.includes('cứu') || lower.includes('deadline') || lower.includes('khóc') || lower.includes('buồn')) {
-    return { reply: 'Á à tụt mood hả 😭 Thở sâu 3 cái rồi gấu cổ vũ bạn làm tiếp nha!', anim: 'cry' };
+    return { reply: 'Á à tụt mood hả 😭 Thở sâu 3 cái rồi bé cổ vũ bạn làm tiếp nha!', anim: 'cry' };
   }
   if (lower.includes('ngại') || lower.includes('xấu hổ') || lower.includes('thẹn')) {
-    return { reply: 'Được khen cái gấu ngại ngang luôn á 🥰', anim: 'shy' };
+    return { reply: 'Được khen cái ngại ngang luôn á 🥰', anim: 'shy' };
   }
   if (lower.includes('bất ngờ') || lower.includes('ngạc nhiên') || lower.includes('ủa') || lower.includes('wow')) {
-    return { reply: 'Ủa gì vậy trời, gấu bất ngờ thiệt đó! 😲', anim: 'surprised' };
+    return { reply: 'Ủa gì vậy trời, bất ngờ thiệt đó! 😲', anim: 'surprised' };
   }
   if (lower.includes('nghĩ') || lower.includes('phân vân') || lower.includes('suy nghĩ')) {
-    return { reply: 'Hmm, để gấu suy nghĩ cùng bạn nha 🤔', anim: 'think' };
+    return { reply: 'Hmm, để bé suy nghĩ cùng bạn nha 🤔', anim: 'think' };
   }
   if (lower.includes('cổ vũ') || lower.includes('động viên') || lower.includes('cố lên') || lower.includes('nản')) {
-    return { reply: 'Bạn làm được mà! Gấu cổ vũ hết mình nè 📣', anim: 'cheer' };
+    return { reply: 'Bạn làm được mà! Cổ vũ hết mình nè 📣', anim: 'cheer' };
   }
   if (lower.includes('tim') || lower.includes('yêu') || lower.includes('keo')) {
     return { reply: 'Bắn tim chéo chéo!! Mãi keo nha bạn tui 🫶💖', anim: 'heart_pose' };
   }
   if (lower.includes('flex') || lower.includes('cơ') || lower.includes('mạnh')) {
-    return { reply: 'Nhìn bắp tay gấu nè, over hợp luôn đúng hông 💪😎', anim: 'flex' };
+    return { reply: 'Over hợp luôn đúng hông 💪😎', anim: 'flex' };
   }
   if (lower.includes('slay') || lower.includes('dab') || lower.includes('ngầu')) {
-    return { reply: 'Slayyy hết nấc! Quả dab này 10 điểm không có nhưng 😎✨', anim: 'dab' };
+    return { reply: 'Slayyy hết nấc! 10 điểm không có nhưng 😎✨', anim: 'dab' };
   }
   if (lower.includes('gét gô') || lower.includes('nhảy') || lower.includes('quẩy')) {
     return { reply: 'Gét gô!! Hết nước chấm luôn bạn ơi 💃🔥', anim: 'dance' };
@@ -1158,21 +210,20 @@ function getBearReply(text: string): { reply: string; anim: Bear3DAnim } {
     return { reply: 'Hello cưng! Chúc hôm nay năng suất gấp đôi hôm qua nha ☀️', anim: 'wave' };
   }
   return {
-    reply: 'Nghe uy tín phết! Giữ vững phong độ nha bạn tui 🧸🧋',
+    reply: 'Nghe uy tín phết! Làm ngụm trà sữa rồi chiến tiếp nha 🧋✨',
     anim: 'idle',
   };
 }
 
 export const Bear3DStudio: React.FC = () => {
-  const [anim, setAnim] = useState<Bear3DAnim>('idle');
+  const [anim, setAnim] = useState<Bear3DAnim>('wave');
   const [variant, setVariant] = useState<Bear3DVariant>('pink');
-  const [look, setLook] = useState<'game' | 'illustration'>('game');
   const [chatInput, setChatInput] = useState('');
   const [messages, setMessages] = useState<BearChatMessage[]>([
     {
-      id: 'welcome_bear',
+      id: 'welcome_sticker',
       sender: 'bear',
-      text: 'Hello cưng! Thử các meme & khớp tay chân mới của mình đi nè 🧸✨',
+      text: 'Hello cưng! Bộ sticker hoạt hình 2D mới tinh đã sẵn sàng rồi nè ✨🐰',
       time: 'Bây giờ',
     },
   ]);
@@ -1210,10 +261,10 @@ export const Bear3DStudio: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <span className="rounded-full bg-pink-100 px-2.5 py-0.5 text-[10px] font-extrabold text-blue-900">
-              BÉ GẤU ĐỒNG HÀNH
+              STICKER HOẠT HÌNH 2D
             </span>
             <h2 className="mt-1 text-sm font-extrabold text-blue-950">
-              Bé Gấu Tương Tác
+              Bé Sticker Tương Tác
             </h2>
           </div>
 
@@ -1225,7 +276,7 @@ export const Bear3DStudio: React.FC = () => {
                 variant === 'pink' ? 'bg-pink-400 text-white shadow-xs' : 'text-slate-500'
               }`}
             >
-              Gấu Hồng
+              Hồng Pastel
             </button>
             <button
               type="button"
@@ -1234,33 +285,7 @@ export const Bear3DStudio: React.FC = () => {
                 variant === 'blue' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
               }`}
             >
-              Gấu Xanh
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-center justify-between rounded-2xl border border-pink-100 bg-white/75 p-1">
-          <span className="pl-2 text-[10px] font-bold text-slate-500">Kiểu tạo hình</span>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              aria-pressed={look === 'game'}
-              onClick={() => setLook('game')}
-              className={`ios-press rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
-                look === 'game' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
-              }`}
-            >
-              Gấu 3D
-            </button>
-            <button
-              type="button"
-              aria-pressed={look === 'illustration'}
-              onClick={() => setLook('illustration')}
-              className={`ios-press rounded-xl px-3 py-1.5 text-[11px] font-bold transition ${
-                look === 'illustration' ? 'bg-blue-900 text-white shadow-xs' : 'text-slate-500'
-              }`}
-            >
-              Minh họa 2D
+              Xanh Pastel
             </button>
           </div>
         </div>
@@ -1271,23 +296,19 @@ export const Bear3DStudio: React.FC = () => {
           </div>
         )}
 
-        {look === 'game' ? (
-          <Bear3DCanvas anim={anim} variant={variant} height={285} onTapBear={() => {}} />
-        ) : (
-          <Bear2DCanvas anim={anim} variant={variant} height={285} onTapBear={() => {}} />
-        )}
+        <div className="mt-2.5">
+          <Bear3DCanvas anim={anim} variant={variant} height={265} />
+        </div>
 
-        <p className="text-center text-[11px] font-semibold text-slate-400">
-          {look === 'game'
-            ? 'Kéo để xoay hoặc chạm vào bé gấu để nựng'
-            : 'Chạm vào bé gấu để nựng và ngắm biểu cảm'}
+        <p className="mt-2 text-center text-[11px] font-semibold text-slate-400">
+          Chạm vào sticker để thả tim hoặc chọn biểu cảm bên dưới
         </p>
       </div>
 
       {/* Actions & Meme Grid */}
       <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
         <h3 className="mb-3 text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-          Biểu cảm &amp; Hoạt động
+          Bộ Sticker &amp; Biểu Cảm
         </h3>
         <div className="grid grid-cols-2 gap-2">
           {ANIM_PRESETS.map((preset) => {
@@ -1296,7 +317,7 @@ export const Bear3DStudio: React.FC = () => {
               <button
                 key={preset.id}
                 type="button"
-              aria-pressed={active}
+                aria-pressed={active}
                 onClick={() => handleSelectAnim(preset)}
                 className={`ios-press flex items-center gap-2 rounded-2xl border px-3 py-2.5 text-left transition ${
                   active
@@ -1318,11 +339,11 @@ export const Bear3DStudio: React.FC = () => {
         </div>
       </div>
 
-      {/* Chat Box with Bear */}
+      {/* Chat Box with Sticker Mascot */}
       <div className="rounded-[24px] border border-pink-100/90 bg-white/90 p-4 shadow-[0_6px_24px_-8px_rgba(30,58,138,0.08)]">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-xs font-extrabold tracking-wide text-blue-950 uppercase">
-            Khung Chat với Bé Gấu
+            Khung Chat với Bé Sticker
           </h3>
           <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-bold text-pink-500">
             Trực tuyến
@@ -1370,7 +391,7 @@ export const Bear3DStudio: React.FC = () => {
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSendChat();
             }}
-            placeholder="Nhắn meme cho bé gấu..."
+            placeholder="Nhắn meme cho bé sticker..."
             className="flex-1 rounded-2xl border border-pink-100 bg-pink-50/40 px-3.5 py-2.5 text-xs font-medium text-blue-950 outline-hidden focus:border-pink-300"
           />
           <button
